@@ -105,10 +105,13 @@ impl MultiProvider {
         Self::new(chains)
     }
 
-    /// Get unified native token balance across all chains.
+    /// Get native token balance across all chains.
     ///
     /// Queries all chains in parallel. Failed chains are reported in
     /// `errors` but don't prevent successful chains from returning.
+    ///
+    /// **Note:** `total` is an approximate portfolio view — ETH on different
+    /// chains is not fungible. You cannot spend Arbitrum ETH on Base without bridging.
     pub async fn unified_balance(&self, address: Address) -> UnifiedBalance {
         let futures: Vec<_> = self
             .chains

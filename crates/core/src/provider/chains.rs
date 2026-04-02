@@ -97,10 +97,10 @@ pub fn default_chains() -> Vec<Chain> {
 }
 
 impl Chain {
-    /// Primary RPC URL.
+    /// Primary RPC URL (first configured endpoint).
     #[must_use]
-    pub fn primary_rpc(&self) -> &str {
-        &self.rpc_urls[0]
+    pub fn primary_rpc(&self) -> Option<&str> {
+        self.rpc_urls.first().map(|s| s.as_str())
     }
 }
 
@@ -113,7 +113,7 @@ mod tests {
         for chain in default_chains() {
             assert!(!chain.rpc_urls.is_empty(), "{} has no RPC URLs", chain.name);
             assert!(
-                chain.primary_rpc().starts_with("https://"),
+                chain.primary_rpc().expect("missing RPC").starts_with("https://"),
                 "{} RPC is not HTTPS",
                 chain.name
             );

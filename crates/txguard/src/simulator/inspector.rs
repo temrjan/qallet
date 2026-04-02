@@ -135,6 +135,7 @@ fn decode_uint256_from_data(data: &[u8]) -> U256 {
 }
 
 /// Safely convert `U256` to `i128`, capping at `i128::MAX` on overflow.
+/// Max representable: ~1.7e38 wei (~1.7e20 ETH). Sufficient for all realistic values.
 fn u256_to_i128(value: U256) -> i128 {
     value.try_into().unwrap_or(i128::MAX)
 }

@@ -28,6 +28,7 @@ alloy-eips = { workspace = true }
 aes-gcm = "0.10"
 argon2 = "0.5"
 rand = "0.8"
+zeroize = { version = "1", features = ["derive"] }
 
 # Async
 tokio = { workspace = true }

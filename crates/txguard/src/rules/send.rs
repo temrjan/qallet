@@ -67,12 +67,11 @@ fn check_send_to_contract_address(parsed: &ParsedTransaction, _findings: &mut Ve
         return;
     }
     if parsed.value.is_zero() {
-        // No value sent — nothing to check.
+        return;
     }
 
     // We can't check if it's a contract without RPC access (Phase 2).
-    // For now, this rule is a placeholder that will be enhanced with
-    // provider-based contract detection in the simulator phase.
+    // Placeholder: will be enhanced with provider-based contract detection.
 }
 
 #[cfg(test)]

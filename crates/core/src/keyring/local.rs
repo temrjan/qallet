@@ -14,6 +14,7 @@ use alloy_signer::Signer;
 use alloy_signer_local::PrivateKeySigner;
 use argon2::Argon2;
 use rand::RngCore;
+use zeroize::Zeroizing;
 
 use super::{KeyInfo, KeyringError};
 
@@ -44,7 +45,7 @@ impl LocalKeyring {
     /// Generate a new random private key, encrypted with the given password.
     pub fn generate(password: &str) -> Result<Self, KeyringError> {
         let signer = PrivateKeySigner::random();
-        let private_key = signer.credential().to_bytes();
+        let private_key = Zeroizing::new(signer.credential().to_bytes());
         let encrypted = encrypt_key(&private_key, password)?;
 
         Ok(Self {
@@ -77,7 +78,7 @@ impl LocalKeyring {
 
     /// Restore a keyring from encrypted bytes + password.
     pub fn from_encrypted(encrypted: &[u8], password: &str) -> Result<Self, KeyringError> {
-        let key_bytes = decrypt_key(encrypted, password)?;
+        let key_bytes = Zeroizing::new(decrypt_key(encrypted, password)?);
         let key = B256::from_slice(&key_bytes);
         let signer = PrivateKeySigner::from_bytes(&key)
             .map_err(|e| KeyringError::KeyGen(e.to_string()))?;
@@ -141,7 +142,7 @@ fn encrypt_key(key: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
     rand::thread_rng().fill_bytes(&mut nonce_bytes);
 
     let encryption_key = derive_key(password, &salt)?;
-    let cipher = Aes256Gcm::new_from_slice(&encryption_key)
+    let cipher = Aes256Gcm::new_from_slice(&*encryption_key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
     let nonce = Nonce::from_slice(&nonce_bytes);
 
@@ -167,7 +168,7 @@ fn decrypt_key(encrypted: &[u8], password: &str) -> Result<Vec<u8>, KeyringError
     let ciphertext = &encrypted[SALT_LEN + NONCE_LEN..];
 
     let encryption_key = derive_key(password, salt)?;
-    let cipher = Aes256Gcm::new_from_slice(&encryption_key)
+    let cipher = Aes256Gcm::new_from_slice(&*encryption_key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
     let nonce = Nonce::from_slice(nonce_bytes);
 
@@ -177,10 +178,13 @@ fn decrypt_key(encrypted: &[u8], password: &str) -> Result<Vec<u8>, KeyringError
 }
 
 /// Derive encryption key from password using Argon2id.
-fn derive_key(password: &str, salt: &[u8]) -> Result<[u8; KEY_LEN], KeyringError> {
-    let mut key = [0u8; KEY_LEN];
+///
+/// Uses default Argon2id params: 19 MiB memory, 2 iterations, 1 parallelism.
+/// Key is wrapped in Zeroizing for automatic cleanup on drop.
+fn derive_key(password: &str, salt: &[u8]) -> Result<Zeroizing<[u8; KEY_LEN]>, KeyringError> {
+    let mut key = Zeroizing::new([0u8; KEY_LEN]);
     Argon2::default()
-        .hash_password_into(password.as_bytes(), salt, &mut key)
+        .hash_password_into(password.as_bytes(), salt, &mut *key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
     Ok(key)
 }
