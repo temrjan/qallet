@@ -52,6 +52,9 @@ qallet wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 
 # Show wallet info from keystore file
 qallet wallet info --keystore 0xabc...def.json --password "your-password"
+
+# Send ETH (txguard security check mandatory, testnet by default)
+qallet wallet send --keystore wallet.json --password "pwd" --to 0xd8dA...6045 --amount 0.1
 ```
 
 ## Architecture

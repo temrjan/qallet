@@ -1,12 +1,14 @@
 //! Qallet CLI — wallet operations and transaction security analysis.
 //!
 //! Usage:
-//!   qallet decode  --to 0x... --data 0x...             # Parse calldata
-//!   qallet analyze --to 0x... --data 0x...             # Security analysis
-//!   qallet wallet new --password <pwd>                  # Generate wallet
-//!   qallet wallet balance <address>                     # Unified balance
-//!   qallet wallet info --keystore <path>  --password <pwd>  # Show wallet info
+//!   qallet decode  --to 0x... --data 0x...                              # Parse calldata
+//!   qallet analyze --to 0x... --data 0x...                              # Security analysis
+//!   qallet wallet new --password <pwd>                                   # Generate wallet
+//!   qallet wallet balance <address>                                      # Unified balance
+//!   qallet wallet info --keystore <path> --password <pwd>                # Show wallet info
+//!   qallet wallet send --keystore <path> --password <pwd> --to 0x... --amount 0.1  # Send ETH
 
+use alloy_provider::Provider;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -81,6 +83,28 @@ enum WalletAction {
         #[arg(long)]
         password: String,
     },
+
+    /// Send ETH to an address (txguard check mandatory).
+    Send {
+        /// Path to keystore JSON file.
+        #[arg(long)]
+        keystore: String,
+        /// Password to decrypt the keystore.
+        #[arg(long)]
+        password: String,
+        /// Recipient address (0x...).
+        #[arg(long)]
+        to: String,
+        /// Amount of ETH to send (e.g., "0.1").
+        #[arg(long)]
+        amount: String,
+        /// Specific chain ID (default: auto-select cheapest).
+        #[arg(long)]
+        chain_id: Option<u64>,
+        /// Use testnet (Sepolia) — default: true for safety.
+        #[arg(long, default_value = "true")]
+        testnet: bool,
+    },
 }
 
 #[tokio::main]
@@ -97,6 +121,16 @@ async fn main() {
                 cmd_wallet_balance(&address, testnet).await;
             }
             WalletAction::Info { keystore, password } => cmd_wallet_info(&keystore, &password),
+            WalletAction::Send {
+                keystore,
+                password,
+                to,
+                amount,
+                chain_id,
+                testnet,
+            } => {
+                cmd_wallet_send(&keystore, &password, &to, &amount, chain_id, testnet).await;
+            }
         },
     }
 }
@@ -226,6 +260,210 @@ fn cmd_wallet_info(keystore_path: &str, password: &str) {
         "info": keyring.info(),
     });
     print_json(&info);
+}
+
+async fn cmd_wallet_send(
+    keystore_path: &str,
+    password: &str,
+    to_str: &str,
+    amount_str: &str,
+    chain_id: Option<u64>,
+    testnet: bool,
+) {
+    use qallet_core::explainer;
+    use qallet_core::provider::MultiProvider;
+    use qallet_core::router;
+
+    // 1. Load keyring
+    let keyring = load_keyring(keystore_path, password);
+    let from = keyring.address();
+    eprintln!("Sender: {from:#x}");
+
+    // 2. Parse recipient and amount
+    let to = to_str
+        .parse::<alloy_primitives::Address>()
+        .unwrap_or_else(|e| exit_error(&format!("Invalid recipient address: {e}")));
+
+    let amount_wei = parse_eth_amount(amount_str);
+    let calldata = alloy_primitives::Bytes::new(); // plain ETH transfer
+
+    // 3. Parse transaction for txguard
+    let parsed = txguard::parser::ParsedTransaction {
+        to,
+        value: amount_wei,
+        action: txguard::parser::TransactionAction::NativeTransfer,
+        function_name: None,
+        function_selector: None,
+    };
+
+    // 4. Security analysis (MANDATORY)
+    let engine = txguard::RulesEngine::new();
+    let verdict = engine.analyze(&parsed);
+
+    // 5. Find route
+    let provider = if testnet {
+        // Testnet-only: filter to Sepolia
+        let chains = qallet_core::provider::default_chains()
+            .into_iter()
+            .filter(|c| c.testnet)
+            .collect();
+        MultiProvider::new(chains)
+    } else {
+        MultiProvider::mainnets_only()
+    };
+
+    let route = match chain_id {
+        Some(id) => {
+            // Use specified chain
+            let routes = router::find_routes(&provider, from, to, calldata.clone(), amount_wei)
+                .await
+                .unwrap_or_else(|e| exit_error(&format!("Routing failed: {e}")));
+            routes
+                .into_iter()
+                .find(|r| r.chain_id == id)
+                .unwrap_or_else(|| exit_error(&format!("Chain {id} not available or insufficient balance")))
+        }
+        None => router::cheapest_route(&provider, from, to, calldata.clone(), amount_wei)
+            .await
+            .unwrap_or_else(|e| exit_error(&format!("Routing failed: {e}"))),
+    };
+
+    // 6. Show explanation BEFORE sending
+    let explanation = explainer::explain(&parsed, &verdict, Some(&route));
+    eprintln!("\n{explanation}");
+    eprintln!();
+
+    // 7. Check verdict — block if dangerous
+    match verdict.action {
+        txguard::Action::Block => {
+            eprintln!("BLOCKED by txguard (risk score: {}). Transaction not sent.", verdict.risk_score);
+            std::process::exit(2);
+        }
+        txguard::Action::Warn => {
+            eprintln!("WARNING: txguard flagged issues (risk score: {}). Proceeding...", verdict.risk_score);
+        }
+        txguard::Action::Allow => {
+            eprintln!("txguard: safe (risk score: {})", verdict.risk_score);
+        }
+    }
+
+    // 8. Build and send EIP-1559 transaction via alloy provider with wallet
+    let chain = provider
+        .chains()
+        .iter()
+        .find(|c| c.id == route.chain_id)
+        .unwrap_or_else(|| exit_error("Chain not found"));
+
+    let rpc_url: reqwest::Url = chain
+        .rpc_urls
+        .first()
+        .unwrap_or_else(|| exit_error("No RPC URL for chain"))
+        .parse()
+        .unwrap_or_else(|e| exit_error(&format!("Invalid RPC URL: {e}")));
+
+    let signer = keyring.signer().clone();
+    let tx_provider = alloy_provider::ProviderBuilder::new()
+        .wallet(alloy_network::EthereumWallet::from(signer))
+        .connect_http(rpc_url);
+
+    let nonce = provider
+        .nonce(route.chain_id, from)
+        .await
+        .unwrap_or_else(|e| exit_error(&format!("Failed to get nonce: {e}")));
+
+    use alloy_network::TransactionBuilder;
+    let tx = alloy_rpc_types_eth::TransactionRequest::default()
+        .with_to(to)
+        .with_value(amount_wei)
+        .with_nonce(nonce)
+        .with_chain_id(route.chain_id)
+        .with_gas_limit(route.estimated_gas)
+        .with_max_fee_per_gas(route.max_fee_per_gas)
+        .with_max_priority_fee_per_gas(route.max_priority_fee_per_gas);
+
+    eprintln!("Broadcasting transaction...");
+
+    match tx_provider.send_transaction(tx).await {
+        Ok(pending) => {
+            let tx_hash: alloy_primitives::B256 = *pending.tx_hash();
+            let result = serde_json::json!({
+                "status": "sent",
+                "tx_hash": format!("{tx_hash:#x}"),
+                "chain_id": route.chain_id,
+                "chain": route.chain_name,
+                "from": format!("{from:#x}"),
+                "to": format!("{to:#x}"),
+                "amount_wei": amount_wei.to_string(),
+                "estimated_gas_cost": route.estimated_cost.to_string(),
+            });
+            print_json(&result);
+
+            // Exit code: 0 if allowed, 1 if warned
+            if verdict.action == txguard::Action::Warn {
+                std::process::exit(1);
+            }
+        }
+        Err(e) => {
+            exit_error(&format!("Transaction failed: {e}"));
+        }
+    }
+}
+
+/// Load keyring from keystore file.
+fn load_keyring(keystore_path: &str, password: &str) -> qallet_core::keyring::LocalKeyring {
+    let json = std::fs::read_to_string(keystore_path)
+        .unwrap_or_else(|e| exit_error(&format!("Failed to read keystore: {e}")));
+
+    let export: serde_json::Value =
+        serde_json::from_str(&json).unwrap_or_else(|e| exit_error(&format!("Invalid JSON: {e}")));
+
+    let encrypted_hex = export["encrypted_key"]
+        .as_str()
+        .unwrap_or_else(|| exit_error("Missing encrypted_key field"));
+
+    let encrypted = alloy_primitives::hex::decode(encrypted_hex)
+        .unwrap_or_else(|e| exit_error(&format!("Invalid hex: {e}")));
+
+    qallet_core::keyring::LocalKeyring::from_encrypted(&encrypted, password)
+        .unwrap_or_else(|e| exit_error(&format!("Decryption failed: {e}")))
+}
+
+/// Parse ETH amount string (e.g., "0.1", "1.5") to wei (U256).
+fn parse_eth_amount(amount: &str) -> alloy_primitives::U256 {
+    let parts: Vec<&str> = amount.split('.').collect();
+    match parts.len() {
+        1 => {
+            // Whole number of ETH
+            let eth: u128 = parts[0]
+                .parse()
+                .unwrap_or_else(|e| exit_error(&format!("Invalid amount: {e}")));
+            alloy_primitives::U256::from(eth).saturating_mul(alloy_primitives::U256::from(1_000_000_000_000_000_000u128))
+        }
+        2 => {
+            // Decimal ETH (e.g., "0.1" → 100_000_000_000_000_000 wei)
+            let whole: u128 = if parts[0].is_empty() {
+                0
+            } else {
+                parts[0]
+                    .parse()
+                    .unwrap_or_else(|e| exit_error(&format!("Invalid amount: {e}")))
+            };
+
+            let decimal_str = parts[1];
+            if decimal_str.len() > 18 {
+                exit_error("Too many decimal places (max 18)");
+            }
+            let padded = format!("{:0<18}", decimal_str);
+            let decimal_wei: u128 = padded
+                .parse()
+                .unwrap_or_else(|e| exit_error(&format!("Invalid decimal: {e}")));
+
+            let whole_wei = alloy_primitives::U256::from(whole)
+                .saturating_mul(alloy_primitives::U256::from(1_000_000_000_000_000_000u128));
+            whole_wei.saturating_add(alloy_primitives::U256::from(decimal_wei))
+        }
+        _ => exit_error("Invalid amount format (expected e.g., '0.1' or '1')"),
+    }
 }
 
 // ─── helpers ────────────────────────────────────────────────────────

@@ -221,6 +221,47 @@ impl MultiProvider {
         Self::fetch_nonce(chain, address).await
     }
 
+    /// Broadcast a signed raw transaction to a specific chain.
+    ///
+    /// Returns the transaction hash on success.
+    pub async fn send_raw_transaction(
+        &self,
+        chain_id: u64,
+        raw_tx: &[u8],
+    ) -> Result<alloy_primitives::B256, ProviderError> {
+        let chain = self.find_chain(chain_id)?;
+        Self::broadcast_tx(chain, raw_tx).await
+    }
+
+    /// Broadcast raw transaction with RPC fallback.
+    async fn broadcast_tx(chain: &Chain, raw_tx: &[u8]) -> Result<alloy_primitives::B256, ProviderError> {
+        for rpc_url in &chain.rpc_urls {
+            let url = match rpc_url.parse() {
+                Ok(u) => u,
+                Err(_) => continue,
+            };
+
+            let provider = ProviderBuilder::new().connect_http(url);
+
+            match provider.send_raw_transaction(raw_tx).await {
+                Ok(pending) => return Ok(*pending.tx_hash()),
+                Err(e) => {
+                    tracing::debug!(
+                        chain_id = chain.id,
+                        rpc = %rpc_url,
+                        error = %e,
+                        "broadcast failed, trying next"
+                    );
+                    continue;
+                }
+            }
+        }
+
+        Err(ProviderError::AllEndpointsFailed {
+            chain_id: chain.id,
+        })
+    }
+
     /// Find a chain by ID.
     fn find_chain(&self, chain_id: u64) -> Result<&Chain, ProviderError> {
         self.chains
