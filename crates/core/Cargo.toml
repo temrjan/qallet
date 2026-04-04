@@ -30,6 +30,9 @@ argon2 = "0.5"
 rand = "0.8"
 zeroize = { version = "1", features = ["derive"] }
 
+# HTTP (shared client for RPC providers — must match alloy-provider's reqwest version)
+reqwest = "0.13"
+
 # Async
 tokio = { workspace = true }
 futures = { workspace = true }

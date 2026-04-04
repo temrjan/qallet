@@ -39,8 +39,11 @@ pub enum ProviderError {
 }
 
 /// Multi-chain provider that queries all configured chains.
+///
+/// Shares a single `reqwest::Client` (connection pool) across all RPC calls.
 pub struct MultiProvider {
     chains: Vec<Chain>,
+    http: reqwest::Client,
 }
 
 /// Balance on a single chain.
@@ -82,11 +85,24 @@ pub struct GasFees {
     pub max_priority_fee_per_gas: u128,
 }
 
+/// Build a shared HTTP client with sensible defaults.
+fn build_http_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(5))
+        .pool_idle_timeout(std::time::Duration::from_secs(90))
+        .build()
+        .expect("default TLS backend is always available")
+}
+
 impl MultiProvider {
     /// Create a new multi-chain provider with the given chains.
     #[must_use]
-    pub const fn new(chains: Vec<Chain>) -> Self {
-        Self { chains }
+    pub fn new(chains: Vec<Chain>) -> Self {
+        Self {
+            chains,
+            http: build_http_client(),
+        }
     }
 
     /// Create a provider with default chain configuration.
@@ -116,7 +132,7 @@ impl MultiProvider {
         let futures: Vec<_> = self
             .chains
             .iter()
-            .map(|chain| Self::fetch_balance(chain, address))
+            .map(|chain| Self::fetch_balance(chain, address, &self.http))
             .collect();
 
         let results = futures::future::join_all(futures).await;
@@ -152,14 +168,18 @@ impl MultiProvider {
     }
 
     /// Fetch balance from a single chain with RPC fallback.
-    async fn fetch_balance(chain: &Chain, address: Address) -> Result<U256, ProviderError> {
+    async fn fetch_balance(
+        chain: &Chain,
+        address: Address,
+        http: &reqwest::Client,
+    ) -> Result<U256, ProviderError> {
         for rpc_url in &chain.rpc_urls {
             let url = match rpc_url.parse() {
                 Ok(u) => u,
                 Err(_) => continue,
             };
 
-            let provider = ProviderBuilder::new().connect_http(url);
+            let provider = ProviderBuilder::new().connect_reqwest(http.clone(), url);
 
             match provider.get_balance(address).await {
                 Ok(balance) => return Ok(balance),
@@ -197,7 +217,7 @@ impl MultiProvider {
     /// Get EIP-1559 fee estimates for a specific chain.
     pub async fn gas_fees(&self, chain_id: u64) -> Result<GasFees, ProviderError> {
         let chain = self.find_chain(chain_id)?;
-        Self::fetch_gas_fees(chain).await
+        Self::fetch_gas_fees(chain, &self.http).await
     }
 
     /// Estimate gas for a transaction on a specific chain.
@@ -210,13 +230,13 @@ impl MultiProvider {
         value: U256,
     ) -> Result<u64, ProviderError> {
         let chain = self.find_chain(chain_id)?;
-        Self::fetch_estimate_gas(chain, from, to, data, value).await
+        Self::fetch_estimate_gas(chain, from, to, data, value, &self.http).await
     }
 
     /// Get transaction count (nonce) for an address on a specific chain.
     pub async fn nonce(&self, chain_id: u64, address: Address) -> Result<u64, ProviderError> {
         let chain = self.find_chain(chain_id)?;
-        Self::fetch_nonce(chain, address).await
+        Self::fetch_nonce(chain, address, &self.http).await
     }
 
     /// Broadcast a signed raw transaction to a specific chain.
@@ -228,13 +248,14 @@ impl MultiProvider {
         raw_tx: &[u8],
     ) -> Result<alloy_primitives::B256, ProviderError> {
         let chain = self.find_chain(chain_id)?;
-        Self::broadcast_tx(chain, raw_tx).await
+        Self::broadcast_tx(chain, raw_tx, &self.http).await
     }
 
     /// Broadcast raw transaction with RPC fallback.
     async fn broadcast_tx(
         chain: &Chain,
         raw_tx: &[u8],
+        http: &reqwest::Client,
     ) -> Result<alloy_primitives::B256, ProviderError> {
         for rpc_url in &chain.rpc_urls {
             let url = match rpc_url.parse() {
@@ -242,7 +263,7 @@ impl MultiProvider {
                 Err(_) => continue,
             };
 
-            let provider = ProviderBuilder::new().connect_http(url);
+            let provider = ProviderBuilder::new().connect_reqwest(http.clone(), url);
 
             match provider.send_raw_transaction(raw_tx).await {
                 Ok(pending) => return Ok(*pending.tx_hash()),
@@ -270,14 +291,17 @@ impl MultiProvider {
     }
 
     /// Fetch EIP-1559 fees from a chain with RPC fallback.
-    async fn fetch_gas_fees(chain: &Chain) -> Result<GasFees, ProviderError> {
+    async fn fetch_gas_fees(
+        chain: &Chain,
+        http: &reqwest::Client,
+    ) -> Result<GasFees, ProviderError> {
         for rpc_url in &chain.rpc_urls {
             let url = match rpc_url.parse() {
                 Ok(u) => u,
                 Err(_) => continue,
             };
 
-            let provider = ProviderBuilder::new().connect_http(url);
+            let provider = ProviderBuilder::new().connect_reqwest(http.clone(), url);
 
             match provider.estimate_eip1559_fees().await {
                 Ok(fees) => {
@@ -309,6 +333,7 @@ impl MultiProvider {
         to: Address,
         data: alloy_primitives::Bytes,
         value: U256,
+        http: &reqwest::Client,
     ) -> Result<u64, ProviderError> {
         use alloy_rpc_types_eth::TransactionRequest;
 
@@ -324,7 +349,7 @@ impl MultiProvider {
                 Err(_) => continue,
             };
 
-            let provider = ProviderBuilder::new().connect_http(url);
+            let provider = ProviderBuilder::new().connect_reqwest(http.clone(), url);
 
             match provider.estimate_gas(tx.clone()).await {
                 Ok(gas) => return Ok(gas),
@@ -344,14 +369,18 @@ impl MultiProvider {
     }
 
     /// Fetch nonce with RPC fallback.
-    async fn fetch_nonce(chain: &Chain, address: Address) -> Result<u64, ProviderError> {
+    async fn fetch_nonce(
+        chain: &Chain,
+        address: Address,
+        http: &reqwest::Client,
+    ) -> Result<u64, ProviderError> {
         for rpc_url in &chain.rpc_urls {
             let url = match rpc_url.parse() {
                 Ok(u) => u,
                 Err(_) => continue,
             };
 
-            let provider = ProviderBuilder::new().connect_http(url);
+            let provider = ProviderBuilder::new().connect_reqwest(http.clone(), url);
 
             match provider.get_transaction_count(address).await {
                 Ok(nonce) => return Ok(nonce),
