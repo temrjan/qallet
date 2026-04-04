@@ -57,6 +57,7 @@ fn check_known_scam_recipient(
 ///
 /// Sending ETH directly to a contract without calling a function is unusual
 /// and may indicate a mistake or a trap contract.
+#[allow(clippy::missing_const_for_fn)] // Phase 2: will have non-const body with RPC calls
 fn check_send_to_contract_address(_parsed: &ParsedTransaction, _findings: &mut Vec<Finding>) {
     // Phase 2 placeholder: requires RPC access to detect contract addresses.
     // Will check: is recipient a contract? + value > 0 without calldata = suspicious.

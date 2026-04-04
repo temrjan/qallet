@@ -147,10 +147,10 @@ fn encrypt_key(key: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
     let encryption_key = derive_key(password, &salt)?;
     let cipher = Aes256Gcm::new_from_slice(&*encryption_key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let nonce = Nonce::from(nonce_bytes);
 
     let ciphertext = cipher
-        .encrypt(nonce, key)
+        .encrypt(&nonce, key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
 
     let mut result = Vec::with_capacity(SALT_LEN + NONCE_LEN + ciphertext.len());
@@ -173,10 +173,12 @@ fn decrypt_key(encrypted: &[u8], password: &str) -> Result<Vec<u8>, KeyringError
     let encryption_key = derive_key(password, salt)?;
     let cipher = Aes256Gcm::new_from_slice(&*encryption_key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
-    let nonce = Nonce::from_slice(nonce_bytes);
+    let nonce = Nonce::from(<[u8; NONCE_LEN]>::try_from(nonce_bytes).map_err(|_| {
+        KeyringError::Crypto("invalid nonce length".into())
+    })?);
 
     cipher
-        .decrypt(nonce, ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|_| KeyringError::WrongPassword)
 }
 
