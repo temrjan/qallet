@@ -38,11 +38,15 @@ pub struct GoPlusClient {
 }
 
 impl GoPlusClient {
-    /// Create a new GoPlus client.
+    /// Create a new GoPlus client with sensible timeouts.
     #[must_use]
     pub fn new() -> Self {
         Self {
-            http: reqwest::Client::new(),
+            http: reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .connect_timeout(std::time::Duration::from_secs(5))
+                .build()
+                .expect("default TLS backend is always available"),
         }
     }
 
