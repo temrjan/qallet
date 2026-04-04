@@ -59,3 +59,10 @@ jobs:
         with:
           cache-on-failure: true
       - run: cargo doc --workspace --no-deps
+
+  deny:
+    name: Deny (licenses + advisories)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
