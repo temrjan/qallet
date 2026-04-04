@@ -96,13 +96,13 @@ impl LocalKeyring {
 
     /// Get the Ethereum address of this key.
     #[must_use]
-    pub fn address(&self) -> Address {
+    pub const fn address(&self) -> Address {
         self.signer.address()
     }
 
     /// Get key metadata.
     #[must_use]
-    pub fn info(&self) -> &KeyInfo {
+    pub const fn info(&self) -> &KeyInfo {
         &self.info
     }
 
@@ -125,7 +125,7 @@ impl LocalKeyring {
 
     /// Get a reference to the alloy signer (for transaction signing).
     #[must_use]
-    pub fn signer(&self) -> &PrivateKeySigner {
+    pub const fn signer(&self) -> &PrivateKeySigner {
         &self.signer
     }
 
@@ -173,9 +173,10 @@ fn decrypt_key(encrypted: &[u8], password: &str) -> Result<Vec<u8>, KeyringError
     let encryption_key = derive_key(password, salt)?;
     let cipher = Aes256Gcm::new_from_slice(&*encryption_key)
         .map_err(|e| KeyringError::Crypto(e.to_string()))?;
-    let nonce = Nonce::from(<[u8; NONCE_LEN]>::try_from(nonce_bytes).map_err(|_| {
-        KeyringError::Crypto("invalid nonce length".into())
-    })?);
+    let nonce = Nonce::from(
+        <[u8; NONCE_LEN]>::try_from(nonce_bytes)
+            .map_err(|_| KeyringError::Crypto("invalid nonce length".into()))?,
+    );
 
     cipher
         .decrypt(&nonce, ciphertext)

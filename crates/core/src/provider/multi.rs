@@ -85,7 +85,7 @@ pub struct GasFees {
 impl MultiProvider {
     /// Create a new multi-chain provider with the given chains.
     #[must_use]
-    pub fn new(chains: Vec<Chain>) -> Self {
+    pub const fn new(chains: Vec<Chain>) -> Self {
         Self { chains }
     }
 
