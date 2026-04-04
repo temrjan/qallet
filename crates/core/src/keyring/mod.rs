@@ -56,7 +56,6 @@ pub struct KeyInfo {
 ///
 /// This produces the standard Web3 Secret Storage format compatible with
 /// MetaMask, MEW, Geth, etc.
-#[must_use]
 pub fn export_keystore_json(private_key: &B256, password: &str) -> Result<String, KeyringError> {
     // Standard Ethereum keystore uses scrypt + AES-128-CTR.
     // For simplicity in MVP, we use our own format.

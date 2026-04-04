@@ -158,6 +158,7 @@ mod tests {
 
     #[test]
     fn route_sort_by_cost() {
+        #[allow(clippy::useless_vec)]
         let mut routes = vec![
             Route {
                 chain_id: 1,
