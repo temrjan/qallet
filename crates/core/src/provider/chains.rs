@@ -113,7 +113,10 @@ mod tests {
         for chain in default_chains() {
             assert!(!chain.rpc_urls.is_empty(), "{} has no RPC URLs", chain.name);
             assert!(
-                chain.primary_rpc().expect("missing RPC").starts_with("https://"),
+                chain
+                    .primary_rpc()
+                    .expect("missing RPC")
+                    .starts_with("https://"),
                 "{} RPC is not HTTPS",
                 chain.name
             );

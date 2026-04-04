@@ -6,5 +6,5 @@
 mod chains;
 mod multi;
 
-pub use chains::{default_chains, Chain};
-pub use multi::{format_wei, GasFees, MultiProvider, ProviderError, UnifiedBalance};
+pub use chains::{Chain, default_chains};
+pub use multi::{GasFees, MultiProvider, ProviderError, UnifiedBalance, format_wei};

@@ -30,11 +30,11 @@ use alloy_eips::BlockId;
 use alloy_primitives::{Address, Bytes, U256};
 use alloy_provider::ProviderBuilder;
 use revm::{
+    Context, MainBuilder, MainContext,
     context::TxEnv,
     database::{AlloyDB, CacheDB},
     database_interface::WrapDatabaseAsync,
     primitives::TxKind,
-    Context, MainBuilder, MainContext,
 };
 use thiserror::Error;
 

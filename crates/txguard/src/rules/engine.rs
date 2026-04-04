@@ -1,7 +1,7 @@
 //! Rules engine — runs all security rules against a parsed transaction.
 
 use crate::parser::ParsedTransaction;
-use crate::types::{action_from_score, risk_score, Action, Finding, Verdict};
+use crate::types::{Action, Finding, Verdict, action_from_score, risk_score};
 
 use super::{approval, contract, permit, send};
 
@@ -114,10 +114,7 @@ fn build_description(parsed: &ParsedTransaction, findings: &[Finding]) -> String
                 amount, from, to, parsed.to
             )
         }
-        TransactionAction::SetApprovalForAll {
-            operator,
-            approved,
-        } => {
+        TransactionAction::SetApprovalForAll { operator, approved } => {
             if *approved {
                 format!(
                     "Grant {} full access to ALL tokens on contract {}",
@@ -130,9 +127,7 @@ fn build_description(parsed: &ParsedTransaction, findings: &[Finding]) -> String
                 )
             }
         }
-        TransactionAction::Permit {
-            spender, value, ..
-        } => {
+        TransactionAction::Permit { spender, value, .. } => {
             format!(
                 "Sign permit allowing {} to spend {} tokens from contract {}",
                 spender, value, parsed.to
@@ -161,7 +156,7 @@ fn build_description(parsed: &ParsedTransaction, findings: &[Finding]) -> String
 mod tests {
     use super::*;
     use crate::parser::{ParsedTransaction, TransactionAction};
-    use alloy_primitives::{address, U256};
+    use alloy_primitives::{U256, address};
 
     fn make_approval(spender: alloy_primitives::Address, amount: U256) -> ParsedTransaction {
         ParsedTransaction {

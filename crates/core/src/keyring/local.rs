@@ -6,8 +6,8 @@
 //! 3. Stored format: salt(16) || nonce(12) || ciphertext(32+16tag) = 76 bytes
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
+    aead::{Aead, KeyInit},
 };
 use alloy_primitives::{Address, B256};
 use alloy_signer::Signer;
@@ -61,8 +61,8 @@ impl LocalKeyring {
 
     /// Create a keyring from an existing private key.
     pub fn from_private_key(key: &B256, password: &str) -> Result<Self, KeyringError> {
-        let signer = PrivateKeySigner::from_bytes(key)
-            .map_err(|e| KeyringError::KeyGen(e.to_string()))?;
+        let signer =
+            PrivateKeySigner::from_bytes(key).map_err(|e| KeyringError::KeyGen(e.to_string()))?;
         let encrypted = encrypt_key(key.as_slice(), password)?;
 
         Ok(Self {
@@ -80,8 +80,8 @@ impl LocalKeyring {
     pub fn from_encrypted(encrypted: &[u8], password: &str) -> Result<Self, KeyringError> {
         let key_bytes = Zeroizing::new(decrypt_key(encrypted, password)?);
         let key = B256::from_slice(&key_bytes);
-        let signer = PrivateKeySigner::from_bytes(&key)
-            .map_err(|e| KeyringError::KeyGen(e.to_string()))?;
+        let signer =
+            PrivateKeySigner::from_bytes(&key).map_err(|e| KeyringError::KeyGen(e.to_string()))?;
 
         Ok(Self {
             info: KeyInfo {
@@ -113,7 +113,10 @@ impl LocalKeyring {
     }
 
     /// Sign a message hash (32 bytes) with this key.
-    pub async fn sign_hash(&self, hash: &B256) -> Result<alloy_primitives::Signature, KeyringError> {
+    pub async fn sign_hash(
+        &self,
+        hash: &B256,
+    ) -> Result<alloy_primitives::Signature, KeyringError> {
         self.signer
             .sign_hash(hash)
             .await
@@ -215,8 +218,7 @@ mod tests {
         let keyring = LocalKeyring::generate(PASSWORD).expect("generate failed");
         let encrypted = keyring.encrypted_bytes();
 
-        let restored =
-            LocalKeyring::from_encrypted(encrypted, PASSWORD).expect("decrypt failed");
+        let restored = LocalKeyring::from_encrypted(encrypted, PASSWORD).expect("decrypt failed");
         assert_eq!(keyring.address(), restored.address());
     }
 

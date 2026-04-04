@@ -99,11 +99,7 @@ pub async fn find_routes(
             Ok(gas) => gas,
             Err(_) => {
                 // Fallback: 21000 for ETH transfer, 65000 for contract call
-                if calldata.is_empty() {
-                    21_000
-                } else {
-                    65_000
-                }
+                if calldata.is_empty() { 21_000 } else { 65_000 }
             }
         };
 
@@ -150,7 +146,10 @@ pub async fn cheapest_route(
 ) -> Result<Route, RouterError> {
     let routes = find_routes(provider, from, to, calldata, value).await?;
     // routes is sorted, first = cheapest
-    Ok(routes.into_iter().next().expect("find_routes ensures non-empty"))
+    Ok(routes
+        .into_iter()
+        .next()
+        .expect("find_routes ensures non-empty"))
 }
 
 #[cfg(test)]

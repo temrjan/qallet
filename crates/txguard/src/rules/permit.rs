@@ -11,11 +11,7 @@ use crate::types::{Finding, RuleCategory, Severity};
 use super::engine::RuleContext;
 
 /// Run all permit rules against a parsed transaction.
-pub(crate) fn check(
-    parsed: &ParsedTransaction,
-    ctx: &RuleContext,
-    findings: &mut Vec<Finding>,
-) {
+pub(crate) fn check(parsed: &ParsedTransaction, ctx: &RuleContext, findings: &mut Vec<Finding>) {
     check_permit_to_unknown(parsed, ctx, findings);
     check_permit_unlimited(parsed, findings);
 }
@@ -53,8 +49,7 @@ fn check_permit_unlimited(parsed: &ParsedTransaction, findings: &mut Vec<Finding
                 severity: Severity::Warning,
                 category: RuleCategory::Permit,
                 description:
-                    "Permit with unlimited value — consider using the exact amount needed."
-                        .into(),
+                    "Permit with unlimited value — consider using the exact amount needed.".into(),
             });
         }
     }
@@ -63,14 +58,11 @@ fn check_permit_unlimited(parsed: &ParsedTransaction, findings: &mut Vec<Finding
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, U256};
+    use alloy_primitives::{U256, address};
 
-    const USDT: alloy_primitives::Address =
-        address!("dAC17F958D2ee523a2206206994597C13D831ec7");
-    const ALICE: alloy_primitives::Address =
-        address!("00000000000000000000000000000000000A11CE");
-    const UNISWAP: alloy_primitives::Address =
-        address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
+    const USDT: alloy_primitives::Address = address!("dAC17F958D2ee523a2206206994597C13D831ec7");
+    const ALICE: alloy_primitives::Address = address!("00000000000000000000000000000000000A11CE");
+    const UNISWAP: alloy_primitives::Address = address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
 
     fn make_permit(spender: alloy_primitives::Address, value: U256) -> ParsedTransaction {
         ParsedTransaction {

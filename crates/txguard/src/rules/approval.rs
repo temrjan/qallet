@@ -9,11 +9,7 @@ use crate::types::{Finding, RuleCategory, Severity};
 use super::engine::RuleContext;
 
 /// Run all approval rules against a parsed transaction.
-pub(crate) fn check(
-    parsed: &ParsedTransaction,
-    ctx: &RuleContext,
-    findings: &mut Vec<Finding>,
-) {
+pub(crate) fn check(parsed: &ParsedTransaction, ctx: &RuleContext, findings: &mut Vec<Finding>) {
     check_unlimited_approval(parsed, findings);
     check_set_approval_for_all(parsed, ctx, findings);
 }
@@ -70,14 +66,11 @@ fn check_set_approval_for_all(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, U256};
+    use alloy_primitives::{U256, address};
 
-    const USDT: alloy_primitives::Address =
-        address!("dAC17F958D2ee523a2206206994597C13D831ec7");
-    const UNISWAP: alloy_primitives::Address =
-        address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
-    const UNKNOWN: alloy_primitives::Address =
-        address!("1111111111111111111111111111111111111111");
+    const USDT: alloy_primitives::Address = address!("dAC17F958D2ee523a2206206994597C13D831ec7");
+    const UNISWAP: alloy_primitives::Address = address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
+    const UNKNOWN: alloy_primitives::Address = address!("1111111111111111111111111111111111111111");
 
     #[test]
     fn unlimited_approval_detected() {

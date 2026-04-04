@@ -109,7 +109,7 @@ fn decode_permit(to: Address, calldata: &Bytes, value: U256) -> Option<ParsedTra
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, U256};
+    use alloy_primitives::{U256, address};
     use alloy_sol_types::SolCall;
 
     const USDT: Address = address!("dAC17F958D2ee523a2206206994597C13D831ec7");

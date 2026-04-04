@@ -175,9 +175,7 @@ impl MultiProvider {
             }
         }
 
-        Err(ProviderError::AllEndpointsFailed {
-            chain_id: chain.id,
-        })
+        Err(ProviderError::AllEndpointsFailed { chain_id: chain.id })
     }
 
     /// Get the list of configured chains.
@@ -234,7 +232,10 @@ impl MultiProvider {
     }
 
     /// Broadcast raw transaction with RPC fallback.
-    async fn broadcast_tx(chain: &Chain, raw_tx: &[u8]) -> Result<alloy_primitives::B256, ProviderError> {
+    async fn broadcast_tx(
+        chain: &Chain,
+        raw_tx: &[u8],
+    ) -> Result<alloy_primitives::B256, ProviderError> {
         for rpc_url in &chain.rpc_urls {
             let url = match rpc_url.parse() {
                 Ok(u) => u,
@@ -257,9 +258,7 @@ impl MultiProvider {
             }
         }
 
-        Err(ProviderError::AllEndpointsFailed {
-            chain_id: chain.id,
-        })
+        Err(ProviderError::AllEndpointsFailed { chain_id: chain.id })
     }
 
     /// Find a chain by ID.
@@ -300,9 +299,7 @@ impl MultiProvider {
             }
         }
 
-        Err(ProviderError::AllEndpointsFailed {
-            chain_id: chain.id,
-        })
+        Err(ProviderError::AllEndpointsFailed { chain_id: chain.id })
     }
 
     /// Estimate gas for a transaction with RPC fallback.
@@ -343,9 +340,7 @@ impl MultiProvider {
             }
         }
 
-        Err(ProviderError::AllEndpointsFailed {
-            chain_id: chain.id,
-        })
+        Err(ProviderError::AllEndpointsFailed { chain_id: chain.id })
     }
 
     /// Fetch nonce with RPC fallback.
@@ -372,9 +367,7 @@ impl MultiProvider {
             }
         }
 
-        Err(ProviderError::AllEndpointsFailed {
-            chain_id: chain.id,
-        })
+        Err(ProviderError::AllEndpointsFailed { chain_id: chain.id })
     }
 }
 
@@ -466,6 +459,9 @@ mod tests {
     fn chain_not_found_error() {
         let provider = MultiProvider::default_chains();
         let err = provider.find_chain(999999).unwrap_err();
-        assert!(matches!(err, ProviderError::ChainNotFound { chain_id: 999999 }));
+        assert!(matches!(
+            err,
+            ProviderError::ChainNotFound { chain_id: 999999 }
+        ));
     }
 }

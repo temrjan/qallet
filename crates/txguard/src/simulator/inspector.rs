@@ -4,10 +4,10 @@
 //! as well as ETH value transfers via internal calls.
 
 use alloy_primitives::{Address, Log, U256};
-use alloy_sol_types::{sol, SolEvent};
+use alloy_sol_types::{SolEvent, sol};
 use revm::{
     inspector::Inspector,
-    interpreter::{interpreter::EthInterpreter, CallInputs, CallOutcome},
+    interpreter::{CallInputs, CallOutcome, interpreter::EthInterpreter},
 };
 
 use crate::types::{ApprovalChange, TokenChange};
@@ -109,11 +109,7 @@ impl<CTX> Inspector<CTX, EthInterpreter> for TransferInspector {
         self.process_log(&log);
     }
 
-    fn call(
-        &mut self,
-        _context: &mut CTX,
-        inputs: &mut CallInputs,
-    ) -> Option<CallOutcome> {
+    fn call(&mut self, _context: &mut CTX, inputs: &mut CallInputs) -> Option<CallOutcome> {
         // Track ETH received via internal calls.
         if inputs.target_address == self.tracked {
             let value = inputs.call_value();
@@ -143,17 +139,13 @@ fn u256_to_i128(value: U256) -> i128 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, Bytes, LogData};
+    use alloy_primitives::{Bytes, LogData, address};
 
     fn make_transfer_log(token: Address, from: Address, to: Address, amount: U256) -> Log {
         Log {
             address: token,
             data: LogData::new(
-                vec![
-                    Transfer::SIGNATURE_HASH,
-                    from.into_word(),
-                    to.into_word(),
-                ],
+                vec![Transfer::SIGNATURE_HASH, from.into_word(), to.into_word()],
                 Bytes::from(amount.to_be_bytes::<32>().to_vec()),
             )
             .expect("valid log data"),

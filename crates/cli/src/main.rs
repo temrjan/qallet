@@ -12,7 +12,11 @@ use alloy_provider::Provider;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "qallet", version, about = "Ethereum wallet with transaction security")]
+#[command(
+    name = "qallet",
+    version,
+    about = "Ethereum wallet with transaction security"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -163,10 +167,7 @@ fn cmd_analyze(to: &str, data: &str, value: &str) {
                 to,
                 value,
                 action: txguard::parser::TransactionAction::Unknown {
-                    selector: format!(
-                        "0x{:02x}{:02x}{:02x}{:02x}",
-                        sel[0], sel[1], sel[2], sel[3]
-                    ),
+                    selector: format!("0x{:02x}{:02x}{:02x}{:02x}", sel[0], sel[1], sel[2], sel[3]),
                     calldata_len: data.len(),
                 },
                 function_name: None,
@@ -328,7 +329,9 @@ async fn cmd_wallet_send(
             routes
                 .into_iter()
                 .find(|r| r.chain_id == id)
-                .unwrap_or_else(|| exit_error(&format!("Chain {id} not available or insufficient balance")))
+                .unwrap_or_else(|| {
+                    exit_error(&format!("Chain {id} not available or insufficient balance"))
+                })
         }
         None => router::cheapest_route(&provider, from, to, calldata.clone(), amount_wei)
             .await
@@ -343,11 +346,17 @@ async fn cmd_wallet_send(
     // 7. Check verdict — block if dangerous
     match verdict.action {
         txguard::Action::Block => {
-            eprintln!("BLOCKED by txguard (risk score: {}). Transaction not sent.", verdict.risk_score);
+            eprintln!(
+                "BLOCKED by txguard (risk score: {}). Transaction not sent.",
+                verdict.risk_score
+            );
             std::process::exit(2);
         }
         txguard::Action::Warn => {
-            eprintln!("WARNING: txguard flagged issues (risk score: {}). Proceeding...", verdict.risk_score);
+            eprintln!(
+                "WARNING: txguard flagged issues (risk score: {}). Proceeding...",
+                verdict.risk_score
+            );
         }
         txguard::Action::Allow => {
             eprintln!("txguard: safe (risk score: {})", verdict.risk_score);
@@ -444,7 +453,8 @@ fn parse_eth_amount(amount: &str) -> alloy_primitives::U256 {
             let eth: u128 = parts[0]
                 .parse()
                 .unwrap_or_else(|e| exit_error(&format!("Invalid amount: {e}")));
-            alloy_primitives::U256::from(eth).saturating_mul(alloy_primitives::U256::from(1_000_000_000_000_000_000u128))
+            alloy_primitives::U256::from(eth)
+                .saturating_mul(alloy_primitives::U256::from(1_000_000_000_000_000_000u128))
         }
         2 => {
             // Decimal ETH (e.g., "0.1" → 100_000_000_000_000_000 wei)
@@ -487,8 +497,11 @@ fn resolve_password(arg: Option<String>) -> String {
         }
     }
 
-    rpassword::prompt_password("Enter password: ")
-        .unwrap_or_else(|e| exit_error(&format!("failed to read password: {e}\nUse --password or QALLET_PASSWORD env")))
+    rpassword::prompt_password("Enter password: ").unwrap_or_else(|e| {
+        exit_error(&format!(
+            "failed to read password: {e}\nUse --password or QALLET_PASSWORD env"
+        ))
+    })
 }
 
 /// Resolve password for wallet creation (prompts twice for confirmation).

@@ -12,11 +12,7 @@ use crate::types::{Finding, RuleCategory, Severity};
 use super::engine::RuleContext;
 
 /// Run all contract rules against a parsed transaction.
-pub(crate) fn check(
-    parsed: &ParsedTransaction,
-    _ctx: &RuleContext,
-    findings: &mut Vec<Finding>,
-) {
+pub(crate) fn check(parsed: &ParsedTransaction, _ctx: &RuleContext, findings: &mut Vec<Finding>) {
     check_unknown_function(parsed, findings);
     check_value_with_calldata(parsed, findings);
 }
@@ -71,7 +67,7 @@ fn check_value_with_calldata(parsed: &ParsedTransaction, findings: &mut Vec<Find
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, U256};
+    use alloy_primitives::{U256, address};
 
     const CONTRACT: alloy_primitives::Address =
         address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");

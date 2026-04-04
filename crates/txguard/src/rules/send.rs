@@ -9,11 +9,7 @@ use crate::types::{Finding, RuleCategory, Severity};
 use super::engine::RuleContext;
 
 /// Run all send rules against a parsed transaction.
-pub(crate) fn check(
-    parsed: &ParsedTransaction,
-    ctx: &RuleContext,
-    findings: &mut Vec<Finding>,
-) {
+pub(crate) fn check(parsed: &ParsedTransaction, ctx: &RuleContext, findings: &mut Vec<Finding>) {
     check_known_scam_recipient(parsed, ctx, findings);
     check_send_to_contract_address(parsed, findings);
 }
@@ -77,14 +73,11 @@ fn check_send_to_contract_address(parsed: &ParsedTransaction, _findings: &mut Ve
 #[cfg(test)]
 mod tests {
     use super::*;
-    use alloy_primitives::{address, U256};
+    use alloy_primitives::{U256, address};
 
-    const USDT: alloy_primitives::Address =
-        address!("dAC17F958D2ee523a2206206994597C13D831ec7");
-    const SCAM: alloy_primitives::Address =
-        address!("000000000000000000000000000000000000dEaD");
-    const SAFE: alloy_primitives::Address =
-        address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
+    const USDT: alloy_primitives::Address = address!("dAC17F958D2ee523a2206206994597C13D831ec7");
+    const SCAM: alloy_primitives::Address = address!("000000000000000000000000000000000000dEaD");
+    const SAFE: alloy_primitives::Address = address!("7a250d5630B4cF539739dF2C5dAcb4c659F2488D");
 
     #[test]
     fn transfer_to_scam_is_forbidden() {

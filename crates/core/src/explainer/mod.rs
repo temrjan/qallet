@@ -94,10 +94,7 @@ pub fn describe_action(parsed: &ParsedTransaction) -> String {
                 short_addr(parsed.to),
             )
         }
-        TransactionAction::SetApprovalForAll {
-            operator,
-            approved,
-        } => {
+        TransactionAction::SetApprovalForAll { operator, approved } => {
             if *approved {
                 format!(
                     "Grant {} full access to ALL tokens on {}",
@@ -112,9 +109,7 @@ pub fn describe_action(parsed: &ParsedTransaction) -> String {
                 )
             }
         }
-        TransactionAction::Permit {
-            spender, value, ..
-        } => {
+        TransactionAction::Permit { spender, value, .. } => {
             format!(
                 "Sign permit: allow {} to spend {} tokens from {}",
                 short_addr(*spender),
@@ -240,10 +235,7 @@ mod tests {
     #[test]
     fn format_eth_normal() {
         assert_eq!(format_eth(U256::from(1_000_000_000_000_000_000u128)), "1");
-        assert_eq!(
-            format_eth(U256::from(500_000_000_000_000_000u128)),
-            "0.5"
-        );
+        assert_eq!(format_eth(U256::from(500_000_000_000_000_000u128)), "0.5");
         assert_eq!(format_eth(U256::ZERO), "0");
     }
 

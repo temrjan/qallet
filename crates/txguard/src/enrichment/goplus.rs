@@ -84,10 +84,7 @@ impl GoPlusClient {
     ///
     /// # Arguments
     /// * `address` - Address to check
-    pub async fn address_security(
-        &self,
-        address: Address,
-    ) -> Result<AddressSecurity, GoPlusError> {
+    pub async fn address_security(&self, address: Address) -> Result<AddressSecurity, GoPlusError> {
         let url = format!("{}/address_security/{:?}", BASE_URL, address);
 
         let resp: GoPlusResponse<AddressSecurityRaw> =
