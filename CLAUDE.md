@@ -39,8 +39,8 @@ app/src         — Leptos UI (WASM, вызывает backend через invoke(
 ## Фазы
 
 - Phase 1: txguard + core + CLI ✅ DONE
-- Phase 2: Desktop app (Tauri 2.0 + Leptos) ← ТЕКУЩАЯ
-- Phase 3: Mobile (iOS + Android, кросс-компиляция)
+- Phase 2: Desktop app (Tauri 2.0 + Leptos) ✅ DONE
+- Phase 3: Mobile (iOS + Android, кросс-компиляция) ← СЛЕДУЮЩАЯ
 - Phase 4: Cross-chain (Across Protocol)
 - Phase 5: AI + Polish
 

@@ -26,19 +26,18 @@
 
 ## Must fix (0 remaining)
 
-Все must-fix закрыты. Phase 1 чиста.
+Все must-fix закрыты. Phase 1 + Phase 2 чисты.
 
 ---
 
-## Consider (7 remaining)
+## Consider (6 remaining)
 
 1. **multi.rs** — Дупликация fetch_gas_fees/fetch_estimate_gas/fetch_nonce. Вынести helper `with_provider()`
 2. **Cargo.toml** — Нет `overflow-checks = true` в `[profile.release]`
 3. **Cargo.toml** — Нет clippy restriction lints (unwrap_used, indexing_slicing, panic)
 4. **txguard/Cargo.toml** — Heavy deps (revm, reqwest) без feature gates. Parser-only consumer тянет EVM
 5. **router/mod.rs** — `expect()` в library code. Заменить на proper error
-6. **ci.yml** — Все steps в одном job. Разбить на parallel jobs (fmt, clippy, test, docs)
-7. **keyring/local.rs** — Нет custom Drop для LocalKeyring (zeroize on drop). `Zeroizing` покрывает `generate()`, но `decrypt_key` flow и `signer` field — нет.
+6. **keyring/local.rs** — Нет custom Drop для LocalKeyring (zeroize on drop). `Zeroizing` покрывает `generate()`, но `decrypt_key` flow и `signer` field — нет.
 
 ---
 
@@ -47,7 +46,7 @@
 - Архитектура: workspace layout по Codex (txguard lib, core domain, cli thin, api placeholder)
 - Error handling: thiserror последовательно, proper variants, #[from], lowercase messages
 - Type design: TransactionAction enum, Severity::weight(), Verdict, #[must_use]
-- Тесты: 69 реальных тестов с настоящими данными (USDT addr, Uniswap Router)
+- Тесты: 81 тест (txguard 38, core 33, desktop 8, doctests 2)
 - Saturating arithmetic в финансовых расчётах
 - Custom Debug для LocalKeyring скрывает signer internals
 - GoPlus client: чистое разделение raw/public types
@@ -55,14 +54,20 @@
 - Zeroize на key bytes в generate() — правильный паттерн
 - Shared HTTP client across providers — экономия ресурсов
 - cargo-deny настроен для license/vulnerability audit
+- Phase 2: shared types crate (core ↔ frontend без U256 в WASM)
+- Phase 2: pure helper extraction в commands.rs для testability
+- Phase 2: server-side QR SVG generation (не тянет deps в WASM)
+- Phase 2: CSP enabled, keystore 0600 permissions, Mutex safety documented
+- Phase 2: CI с Tauri system deps, все 5 jobs зелёные
 
 ---
 
 ## Next steps
 
-1. **Phase 2: Desktop app (Tauri 2.0 + Leptos)**
-   - See `docs/PHASE2-LEPTOS-TAURI.md` for implementation guide
-   - Шаги: types crate → Tauri scaffold → Leptos frontend → commands → pages
+1. **Phase 3: Mobile (iOS + Android)**
+   - Кросс-компиляция core на ARM targets
+   - Tauri mobile builds (iOS + Android)
+   - Passkey auth (WebAuthn), biometric unlock
 2. Добавить overflow-checks в release profile (Consider #2)
-3. Добавить custom Drop для LocalKeyring (zeroize on drop) (Consider #7)
-4. Push + verify CI
+3. Добавить custom Drop для LocalKeyring (zeroize on drop) (Consider #6)
+4. Analyze page: добавить поле value для ETH transfer analysis

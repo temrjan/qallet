@@ -145,11 +145,11 @@ Open Core:
 
 **Phase 1 — txguard core + CLI** ✅ DONE
 Parser + Simulator + Rules Engine + CLI (decode, analyze, wallet new/balance/send).
-69 тестов, 0 must-fix.
 
-**Phase 2 — Desktop приложение (Tauri 2.0)**
-Tauri app для macOS. Leptos UI (Rust → WASM) + Rust core через tauri::command.
-Unified balance + single-chain send + txguard protection.
+**Phase 2 — Desktop приложение (Tauri 2.0 + Leptos)** ✅ DONE
+Tauri app для macOS. Leptos 0.7 UI (Rust → WASM) + Rust core через tauri::command.
+4 страницы: Balance (multi-chain), Analyze (txguard), Wallet (create + persist), Receive (QR).
+81 тест, CI зелёный, 0 must-fix.
 
 **Phase 3 — Мобильное приложение (iOS + Android)**
 Кросс-компиляция core на ARM targets. Tauri mobile builds.

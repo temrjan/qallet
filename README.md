@@ -2,12 +2,13 @@
 
 Ethereum wallet with chain abstraction and transaction security engine.
 
-**Status:** Alpha / Work in Progress
+**Status:** Alpha — Phase 2 complete (Desktop app)
 
 ## What is this?
 
-Two components in one workspace:
+Ethereum wallet with chain abstraction and transaction protection:
 
+- **Desktop app** — Tauri 2.0 + Leptos (full Rust). Balance, Analyze, Wallet, Receive with QR.
 - **txguard** — Rust crate that analyzes EVM transactions before signing. Decodes calldata, runs security rules, simulates via revm, enriches with GoPlus threat intel.
 - **rustok core** — Multi-chain wallet with unified balance across L1/L2, encrypted keyring (AES-256-GCM + Argon2id), and CLI interface.
 
@@ -71,9 +72,14 @@ rustok/
 │   │   ├── keyring/      AES-256-GCM + Argon2id encrypted keys
 │   │   ├── provider/     Multi-chain RPC + EIP-1559 gas estimation
 │   │   ├── router/       Cheapest chain selection for transactions
-│   │   └── explainer/    Human-readable transaction descriptions
+│   │   ├── explainer/    Human-readable transaction descriptions
+│   │   └── convert/      DTO conversions (core types → frontend types)
+│   ├── types/      # Shared DTO types (core ↔ frontend, no crypto deps)
 │   ├── cli/        # CLI binary
 │   └── api/        # HTTP API (planned)
+├── app/
+│   ├── src-tauri/  # Tauri backend (tauri::command → core)
+│   └── src/        # Leptos frontend (WASM, invokes backend)
 └── docs/           # Research & design documents
 ```
 
@@ -101,9 +107,24 @@ rustok/
 | zkSync Era | 324 | Active |
 | Sepolia | 11155111 | Testnet |
 
+## Desktop App
+
+```bash
+# Prerequisites
+rustup target add wasm32-unknown-unknown
+cargo install trunk --locked
+cargo install tauri-cli --version "^2.10" --locked
+
+# Run desktop app
+cargo tauri dev
+```
+
+Pages: Balance (multi-chain), Analyze (txguard), Wallet (create/persist), Receive (QR code).
+
 ## Tech Stack
 
 - **Language:** Rust (edition 2024)
+- **Desktop:** Tauri 2.0 (native shell) + Leptos 0.7 (WASM UI)
 - **EVM:** revm v36, alloy-evm v0.30
 - **Ethereum:** alloy-rs v1.8 (provider, signer, primitives)
 - **Crypto:** AES-256-GCM, Argon2id, secp256k1
@@ -113,9 +134,10 @@ rustok/
 ## Tests
 
 ```
-69 tests, 0 failures
+81 tests, 0 failures
  - txguard: 38 tests (parser, rules, types, simulator inspector)
- - core: 29 tests (keyring, provider, router, explainer)
+ - core: 33 tests (keyring, provider, router, explainer, convert)
+ - desktop: 8 tests (password validation, value parsing, QR generation)
  - doc-tests: 2
 ```
 
