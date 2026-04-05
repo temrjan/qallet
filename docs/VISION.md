@@ -89,10 +89,9 @@ Ethereum в 2026 — это десятки L2/L3 сетей. Для пользо
 | Core | Rust | Безопасность, производительность, целевая аудитория |
 | Ethereum primitives | alloy-rs | Стандарт индустрии, заменил ethers-rs |
 | EVM simulation | revm | Локальная симуляция транзакций |
-| Web runtime | WASM (wasm-bindgen) | Rust core работает в браузере |
-| HTTP API | axum | Для self-hosted варианта |
+| App shell | Tauri 2.0 | Один Rust core → iOS, Android, Desktop |
+| UI | React + TypeScript | Быстрая итерация, экосистема компонентов |
 | CLI | clap | Для разработчиков |
-| UI | Web (SPA/PWA) | Минимальный порог входа для пользователя |
 | Key storage | Passkey + MPC | Без seed-фраз |
 | Cross-chain | Across Protocol (intents) | Open source, intent-based |
 
@@ -100,10 +99,10 @@ Ethereum в 2026 — это десятки L2/L3 сетей. Для пользо
 
 ## Форматы продукта
 
-1. **txguard** — open-source Rust crate (MIT). Библиотека защиты транзакций. Самостоятельный продукт.
-2. **Кошелёк (Web)** — SPA/PWA для обычных пользователей. Rust/WASM core + UI.
-3. **CLI** — `txguard analyze 0x...` для разработчиков и исследователей.
-4. **HTTP API** — self-hosted или hosted, для интеграции в другие продукты.
+1. **Мобильное приложение** — iOS + Android через Tauri 2.0. Основной продукт.
+2. **Desktop** — macOS, Windows, Linux. Бесплатно через тот же Tauri build.
+3. **txguard** — open-source Rust crate. Библиотека защиты транзакций. Самостоятельный продукт.
+4. **CLI** — `qallet analyze 0x...` для разработчиков и исследователей.
 
 ---
 
@@ -136,27 +135,34 @@ Open Core:
 | Open source | Да (JS) | Да (JS) | Нет | **Да (Rust)** |
 | Без seed-фраз | Нет | Нет | Да | **Да** |
 | Rust | Нет | Нет | Нет | **Да** |
+| Нативное мобильное | Нет | Нет | Да | **Да (Tauri)** |
 
-**Ниша свободна:** нет open-source Rust Ethereum wallet с chain abstraction.
+**Ниша свободна:** нет open-source Rust Ethereum wallet с chain abstraction и нативным мобильным приложением.
 
 ---
 
-## Фазы (высокоуровнево)
+## Фазы
 
-**Phase 1 — txguard core + CLI**
-Parser + Simulator + Rules Engine. Работающий crate + CLI.
+**Phase 1 — txguard core + CLI** ✅ DONE
+Parser + Simulator + Rules Engine + CLI (decode, analyze, wallet new/balance/send).
+69 тестов, 0 must-fix.
 
-**Phase 2 — Web wallet MVP**
-Unified balance + single-chain send + txguard protection. Passkey auth.
+**Phase 2 — Desktop приложение (Tauri 2.0)**
+Tauri app для macOS. React UI + Rust core через tauri::command.
+Unified balance + single-chain send + txguard protection.
 
-**Phase 3 — Cross-chain**
-Intent-based routing через Across. AI оптимальный маршрут. Сбор пыли.
+**Phase 3 — Мобильное приложение (iOS + Android)**
+Кросс-компиляция core на ARM targets. Tauri mobile builds.
+Passkey auth (WebAuthn). Biometric unlock.
 
-**Phase 4 — AI + Polish**
-NLP команды, объяснения, полноценный AI-ассистент. Browser extension.
+**Phase 4 — Cross-chain**
+Intent-based routing через Across Protocol. Сбор пыли.
+AI роутинг — оптимальный маршрут из всех вариантов.
 
-**Phase 5 — Mobile + Ecosystem**
-PWA → нативное приложение. WASM SDK для других проектов.
+**Phase 5 — AI + Polish**
+NLP команды, AI-объяснения транзакций, полноценный ассистент.
+
+Каждая фаза — production quality. Не MVP, не демо. Фундамент.
 
 ---
 
@@ -173,7 +179,18 @@ PWA → нативное приложение. WASM SDK для других пр
 
 ---
 
-## Существующие документы
+## Архитектура приложения
 
-- Концепт txguard: `C:\Claude\docs\tx-firewall-concept.md`
-- Naming brief: `C:\Claude\docs\txguard-naming-brief.md`
+```
+qallet/
+├── crates/
+│   ├── txguard/    — движок безопасности (самостоятельный crate)
+│   ├── core/       — wallet core (keyring, provider, router, explainer)
+│   └── cli/        — CLI для разработчиков
+├── app/
+│   ├── src-tauri/  — Tauri backend (tauri::command → wallet-core)
+│   └── src/        — React UI (вызывает core через invoke())
+```
+
+UI вызывает Rust core напрямую через `tauri::command` — без HTTP, без WASM.
+Один и тот же Rust код работает на всех платформах.
