@@ -57,7 +57,8 @@ body {
 .hover\:bg-blue-700:hover { background: #4F46E5; }
 .hover\:text-blue-400:hover { color: #818CF8; }
 
-a { color: #6B7280; text-decoration: none; }
+a { color: #6B7280; text-decoration: none; transition: color 0.15s; }
+a[aria-current="page"] { color: #818CF8; }
 
 /* Button states */
 button:disabled {
