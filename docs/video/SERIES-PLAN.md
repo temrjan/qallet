@@ -1,7 +1,7 @@
-# Qallet Video Series — Plan
+# Rustok Video Series — Plan
 
 > 5 эпизодов, LinkedIn + YouTube, 16:9, 2:30–3:00 каждый
-> Tagline: "Qallet. 100% Rust. Zero compromise."
+> Tagline: "Rustok. 100% Rust. Zero compromise."
 > Кружок автора постоянно (правый нижний угол)
 
 ---
@@ -46,7 +46,7 @@
 
 **Кадр 2 — Что такое txguard [0:08–0:25]**
 - Экран: slides.html #6 (txguard Flow: Parse → Rules → Simulate → Enrich → Verdict)
-- Озвучка: "txguard — Rust crate внутри Qallet. Анализирует транзакцию ДО подписания. Парсит calldata, проверяет 8 security rules, симулирует на локальном EVM, обогащает данными GoPlus. Результат — вердикт: allow, warn или block."
+- Озвучка: "txguard — Rust crate внутри Rustok. Анализирует транзакцию ДО подписания. Парсит calldata, проверяет 8 security rules, симулирует на локальном EVM, обогащает данными GoPlus. Результат — вердикт: allow, warn или block."
 
 **Кадр 3 — Security Rules [0:25–0:45]**
 - Экран: slides.html #7 (Security Rules — 8 правил с severity)
@@ -56,12 +56,12 @@
 - Экран: Терминал
 - Команда:
   ```
-  cargo run -p qallet -- decode \
+  cargo run -p rustok -- decode \
     --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
     --data 0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000000000005f5e100
   ```
 - Результат: JSON с `"action": "TokenTransfer"`, `"to"`, `"amount"`
-- Озвучка: "Вот сырой hex — calldata транзакции. Для человека — набор символов. qallet decode превращает это в читаемый JSON: transfer 100 USDT на адрес Виталика."
+- Озвучка: "Вот сырой hex — calldata транзакции. Для человека — набор символов. rustok decode превращает это в читаемый JSON: transfer 100 USDT на адрес Виталика."
 
 **Кадр 5 — Демо: analyze safe [1:05–1:20]**
 - Экран: Терминал
@@ -94,7 +94,7 @@
 
 **Кадр 9 — Tagline [2:30–2:40]**
 - Экран: slides.html #11 (Closing)
-- Озвучка: "Qallet. 100% Rust. Zero compromise."
+- Озвучка: "Rustok. 100% Rust. Zero compromise."
 
 ### Нужные слайды для EP2
 - Используем из slides.html: #1, #6, #7, #11
@@ -103,22 +103,22 @@
 ### Терминал: команды для подготовки
 ```bash
 # 1. Decode ERC-20 transfer (100 USDT to Vitalik)
-cargo run -p qallet -- decode \
+cargo run -p rustok -- decode \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000000000005f5e100
 
 # 2. Analyze same transfer (safe)
-cargo run -p qallet -- analyze \
+cargo run -p rustok -- analyze \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0xa9059cbb000000000000000000000000d8da6bf26964af9d7eed9e03e53415d37aa960450000000000000000000000000000000000000000000000000000000005f5e100
 
 # 3. Analyze unlimited approval (warn)
-cargo run -p qallet -- analyze \
+cargo run -p rustok -- analyze \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0x095ea7b3000000000000000000000000000000000000000000000000000000000000deadffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 
 # 4. Analyze scam transfer (block) — нужно проверить что адрес в blacklist
-cargo run -p qallet -- analyze \
+cargo run -p rustok -- analyze \
   --to 0x000000000000000000000000000000000000dEaD \
   --value 1000000000000000000
 ```
@@ -138,13 +138,13 @@ cargo run -p qallet -- analyze \
 
 **Кадр 2 — Chain Abstraction [0:08–0:25]**
 - Экран: slides.html #8 (Chains — 6 сетей)
-- Озвучка: "Qallet подключается к пяти сетям одновременно. Ethereum, Arbitrum, Base, Optimism, zkSync. Запросы параллельные — через futures::join_all. Баланс собирается за секунды."
+- Озвучка: "Rustok подключается к пяти сетям одновременно. Ethereum, Arbitrum, Base, Optimism, zkSync. Запросы параллельные — через futures::join_all. Баланс собирается за секунды."
 
 **Кадр 3 — Демо: unified balance [0:25–0:50]**
 - Экран: Терминал
 - Команда:
   ```
-  cargo run -p qallet -- wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+  cargo run -p rustok -- wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
   ```
 - Результат: JSON с total + breakdown по сетям (баланс Виталика)
 - Озвучка: "wallet balance — один запрос, все сети. Total — сумма по всем чейнам. Breakdown — сколько где. Errors — если какая-то сеть не ответила, остальные работают. Fault tolerant."
@@ -174,11 +174,11 @@ cargo run -p qallet -- analyze \
 
 **Кадр 7 — Подсветка фичи [1:55–2:25]**
 - Экран: slides.html #9 (Comparison)
-- Озвучка: "MetaMask не показывает unified balance. Rabby показывает, но не умеет роутить. Particle — да, но закрытый. Qallet — unified balance плюс smart routing, open source, Rust."
+- Озвучка: "MetaMask не показывает unified balance. Rabby показывает, но не умеет роутить. Particle — да, но закрытый. Rustok — unified balance плюс smart routing, open source, Rust."
 
 **Кадр 8 — Tagline [2:25–2:35]**
 - Экран: slides.html #11
-- Озвучка: "Qallet. 100% Rust. Zero compromise."
+- Озвучка: "Rustok. 100% Rust. Zero compromise."
 
 ### Нужные слайды для EP3
 - Используем из slides.html: #1, #3, #8, #9, #11
@@ -186,7 +186,7 @@ cargo run -p qallet -- analyze \
 
 ### Терминал: команды
 ```bash
-cargo run -p qallet -- wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+cargo run -p rustok -- wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 ```
 
 ---
@@ -241,13 +241,13 @@ cargo run -p qallet -- wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 
 **Кадр 7 — Тесты [2:10–2:25]**
 - Экран: Терминал
-- Команда: `cargo test -p qallet-core -- keyring`
+- Команда: `cargo test -p rustok-core -- keyring`
 - Показать: тесты keyring проходят (encrypt/decrypt roundtrip, wrong password, etc.)
 - Озвучка: "8 тестов keyring. Encrypt-decrypt roundtrip. Неправильный пароль — отклоняется. Known key — детерминистичный адрес. Sign hash — валидная подпись."
 
 **Кадр 8 — Tagline [2:25–2:35]**
 - Экран: slides.html #11
-- Озвучка: "Qallet. 100% Rust. Zero compromise."
+- Озвучка: "Rustok. 100% Rust. Zero compromise."
 
 ### Нужные слайды для EP4
 - Используем из slides.html: #1, #11
@@ -264,7 +264,7 @@ git log --oneline | head -10
 git show <commit-hash> -- crates/core/src/keyring/local.rs
 
 # Keyring tests
-cargo test -p qallet-core -- keyring
+cargo test -p rustok-core -- keyring
 ```
 
 ---
@@ -324,7 +324,7 @@ cargo test -p qallet-core -- keyring
 
 **Кадр 9 — Tagline [2:40–2:50]**
 - Экран: slides.html #11
-- Озвучка: "Qallet. 100% Rust. Zero compromise."
+- Озвучка: "Rustok. 100% Rust. Zero compromise."
 
 ### Нужные слайды для EP5
 - Используем из slides.html: #1, #3, #10, #11

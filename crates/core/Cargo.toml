@@ -1,5 +1,5 @@
 [package]
-name = "qallet-core"
+name = "rustok-core"
 description = "Core wallet logic — keyring, provider, router, explainer"
 version.workspace = true
 edition.workspace = true

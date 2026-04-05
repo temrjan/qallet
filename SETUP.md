@@ -1,4 +1,4 @@
-# Qallet — Setup Guide for Claude Code
+# Rustok — Setup Guide for Claude Code
 
 > Этот документ — инструкция для Claude Code на другой машине.
 > Цель: создать GitHub repo и продолжить разработку.
@@ -7,23 +7,23 @@
 
 ## 1. Проект
 
-**Qallet** — Ethereum-кошелек на Rust с chain abstraction + txguard (security engine).
+**Rustok** — Ethereum-кошелек на Rust с chain abstraction + txguard (security engine).
 
-- **Домен:** qallet.io
+- **Домен:** rustok.io
 - **Лицензия:** AGPL-3.0-or-later
 - **Два компонента:**
   - `txguard` — Rust crate, анализ/симуляция/защита EVM-транзакций
-  - `qallet` (core, cli, api) — кошелек с unified balance через L1/L2/L3
+  - `rustok` (core, cli, api) — кошелек с unified balance через L1/L2/L3
 
 ## 2. Создание GitHub repo
 
 ```bash
-cd /path/to/qallet
+cd /path/to/rustok
 
 # Создать repo (выбрать один вариант)
-gh repo create qallet/qallet --public --source=. --description "Ethereum wallet with chain abstraction + txguard security engine"
+gh repo create rustok/rustok --public --source=. --description "Ethereum wallet with chain abstraction + txguard security engine"
 # или:
-gh repo create temrjan/qallet --public --source=.
+gh repo create temrjan/rustok --public --source=.
 
 # Первый коммит
 git add -A
@@ -43,7 +43,7 @@ git push -u origin main
 ## 3. Структура проекта
 
 ```
-qallet/
+rustok/
 ├── Cargo.toml              # Workspace (4 crates)
 ├── LICENSE                  # AGPL-3.0
 ├── README.md
@@ -100,10 +100,10 @@ qallet/
 1. **wallet send** — end-to-end транзакция:
    - Provider: добавить `send_raw_transaction()`, `get_nonce()` уже есть
    - Build EIP-1559 tx → txguard analyze → show verdict + explain → keyring sign → broadcast → tx hash
-   - CLI: `qallet wallet send --to 0x... --amount 0.1 --keystore wallet.json --password pwd`
+   - CLI: `rustok wallet send --to 0x... --amount 0.1 --keystore wallet.json --password pwd`
    - Safety: txguard check mandatory, `--testnet` по умолчанию
 
-2. ~~**Переименовать crates**~~ — DONE (`qallet`, `qallet-core`, `qallet-api`)
+2. ~~**Переименовать crates**~~ — DONE (`rustok`, `rustok-core`, `rustok-api`)
 
 ### Потом
 3. **HTTP API** (axum) — POST /analyze, POST /send, GET /balance

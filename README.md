@@ -1,4 +1,4 @@
-# Qallet
+# Rustok
 
 Ethereum wallet with chain abstraction and transaction security engine.
 
@@ -9,7 +9,7 @@ Ethereum wallet with chain abstraction and transaction security engine.
 Two components in one workspace:
 
 - **txguard** — Rust crate that analyzes EVM transactions before signing. Decodes calldata, runs security rules, simulates via revm, enriches with GoPlus threat intel.
-- **qallet core** — Multi-chain wallet with unified balance across L1/L2, encrypted keyring (AES-256-GCM + Argon2id), and CLI interface.
+- **rustok core** — Multi-chain wallet with unified balance across L1/L2, encrypted keyring (AES-256-GCM + Argon2id), and CLI interface.
 
 ## Quick Start
 
@@ -21,7 +21,7 @@ cargo build
 cargo test
 
 # CLI help
-cargo run -p qallet -- --help
+cargo run -p rustok -- --help
 ```
 
 ## CLI Examples
@@ -30,13 +30,13 @@ cargo run -p qallet -- --help
 
 ```bash
 # Decode ERC-20 approve calldata
-qallet decode \
+rustok decode \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0x095ea7b3000000000000000000000000000000000000000000000000000000000000dead00000000000000000000000000000000000000000000000000000000000f4240
 
 # Full security analysis (parse + rules + verdict)
 # Exit codes: 0=allow, 1=warn, 2=block
-qallet analyze \
+rustok analyze \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0x095ea7b3ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 ```
@@ -45,22 +45,22 @@ qallet analyze \
 
 ```bash
 # Generate a new encrypted wallet
-qallet wallet new --password "your-secure-password"
+rustok wallet new --password "your-secure-password"
 
 # Check unified balance across Ethereum, Arbitrum, Base, Optimism, zkSync
-qallet wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
+rustok wallet balance 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045
 
 # Show wallet info from keystore file
-qallet wallet info --keystore 0xabc...def.json --password "your-password"
+rustok wallet info --keystore 0xabc...def.json --password "your-password"
 
 # Send ETH (txguard security check mandatory, testnet by default)
-qallet wallet send --keystore wallet.json --password "pwd" --to 0xd8dA...6045 --amount 0.1
+rustok wallet send --keystore wallet.json --password "pwd" --to 0xd8dA...6045 --amount 0.1
 ```
 
 ## Architecture
 
 ```
-qallet/
+rustok/
 ├── crates/
 │   ├── txguard/    # Transaction security engine
 │   │   ├── parser/       ERC-20/721/EIP-2612 calldata decoder

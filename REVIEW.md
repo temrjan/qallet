@@ -1,4 +1,4 @@
-# Code Review — Qallet Full Codebase
+# Code Review — Rustok Full Codebase
 > Date: 2026-04-05 (updated)
 > Previous review: 2026-04-02
 > Standard: Codex rust.md v1.0 + architecture.md v1.1
@@ -26,7 +26,7 @@
 ### 1. `crates/cli/src/main.rs` — Пароль всё ещё можно передать через CLI args
 `password: Option<String>` с `#[arg(long)]` — `--password "secret"` виден в `ps aux`.
 Интерактивный ввод через `rpassword` уже добавлен (main.rs:500,519,521), но `--password` флаг не убран.
-**Fix:** убрать `--password` из CLI args, оставить только `rpassword` prompt + `env = "QALLET_PASSWORD"`.
+**Fix:** убрать `--password` из CLI args, оставить только `rpassword` prompt + `env = "RUSTOK_PASSWORD"`.
 
 ### 2. `crates/txguard/src/simulator/mod.rs:129` — i128 cap для eth_change
 `value.try_into().unwrap_or(i128::MAX)` — теряет precision для значений > 170 141 183 ETH.

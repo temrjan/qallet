@@ -3276,61 +3276,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "qallet"
-version = "0.1.0"
-dependencies = [
- "alloy-network",
- "alloy-primitives",
- "alloy-provider",
- "alloy-rpc-types-eth",
- "clap",
- "qallet-core",
- "reqwest 0.12.28",
- "rpassword",
- "serde",
- "serde_json",
- "tokio",
- "tracing-subscriber 0.3.23",
- "txguard",
-]
-
-[[package]]
-name = "qallet-api"
-version = "0.1.0"
-dependencies = [
- "tokio",
- "txguard",
-]
-
-[[package]]
-name = "qallet-core"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "alloy-chains",
- "alloy-consensus",
- "alloy-eips",
- "alloy-network",
- "alloy-primitives",
- "alloy-provider",
- "alloy-rpc-types-eth",
- "alloy-signer",
- "alloy-signer-local",
- "alloy-transport-http",
- "argon2",
- "futures",
- "rand 0.8.5",
- "reqwest 0.13.2",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "txguard",
- "zeroize",
-]
-
-[[package]]
 name = "quick-error"
 version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4022,6 +3967,61 @@ dependencies = [
  "ring",
  "rustls-pki-types",
  "untrusted",
+]
+
+[[package]]
+name = "rustok"
+version = "0.1.0"
+dependencies = [
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types-eth",
+ "clap",
+ "reqwest 0.12.28",
+ "rpassword",
+ "rustok-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing-subscriber 0.3.23",
+ "txguard",
+]
+
+[[package]]
+name = "rustok-api"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+ "txguard",
+]
+
+[[package]]
+name = "rustok-core"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "alloy-chains",
+ "alloy-consensus",
+ "alloy-eips",
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-provider",
+ "alloy-rpc-types-eth",
+ "alloy-signer",
+ "alloy-signer-local",
+ "alloy-transport-http",
+ "argon2",
+ "futures",
+ "rand 0.8.5",
+ "reqwest 0.13.2",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "txguard",
+ "zeroize",
 ]
 
 [[package]]

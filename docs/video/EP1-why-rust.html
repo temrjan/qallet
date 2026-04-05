@@ -92,7 +92,7 @@
     <div class="scene-section">
       <div class="section-label label-screen"><span class="dot dot-blue"></span>Экран</div>
       <div class="section-content">
-        Слайд: <strong>Qallet</strong> — "Chain abstraction + transaction security engine" — "100% Rust. Zero Compromise."
+        Слайд: <strong>Rustok</strong> — "Chain abstraction + transaction security engine" — "100% Rust. Zero Compromise."
       </div>
     </div>
 
@@ -146,7 +146,7 @@
 
     <div class="scene-section">
       <div class="section-label label-action"><span class="dot dot-purple"></span>Действие</div>
-      <div class="section-content">Переключиться на браузер → GitHub repo <code>temrjan/qallet</code>. Медленный скролл по README.</div>
+      <div class="section-content">Переключиться на браузер → GitHub repo <code>temrjan/rustok</code>. Медленный скролл по README.</div>
     </div>
 
     <div class="scene-section">
@@ -161,7 +161,7 @@
 
     <div class="scene-section">
       <div class="section-label label-voice"><span class="dot dot-green"></span>Озвучка (RU)</div>
-      <div class="voice-text">Это Qallet — Ethereum кошелёк с chain abstraction и встроенным security engine. 100% Rust. Один разработчик. Я пишу его вместе с Claude Code — AI-ассистентом от Anthropic — по системе стандартов, которую мы называем Codex.</div>
+      <div class="voice-text">Это Rustok — Ethereum кошелёк с chain abstraction и встроенным security engine. 100% Rust. Один разработчик. Я пишу его вместе с Claude Code — AI-ассистентом от Anthropic — по системе стандартов, которую мы называем Codex.</div>
     </div>
   </div>
 
@@ -218,7 +218,7 @@
         Тесты бегут → <code>69 passed; 0 failed</code>
         <br><br>
         Команда 2:
-        <pre>cargo run -p qallet -- --help</pre>
+        <pre>cargo run -p rustok -- --help</pre>
         Список команд: decode, analyze, wallet.
       </div>
     </div>
@@ -251,7 +251,7 @@
       <div class="section-label label-screen"><span class="dot dot-blue"></span>Экран</div>
       <div class="section-content">
         <strong>Команда 1 — безопасный transfer (1 ETH на адрес Виталика):</strong>
-        <pre>cargo run -p qallet -- analyze \
+        <pre>cargo run -p rustok -- analyze \
   --to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 \
   --value 1000000000000000000</pre>
         Результат: <code>"action": "allow"</code>, <code>"risk_score": 0</code>
@@ -259,7 +259,7 @@
         <em style="color:#666;">Пауза 2 сек.</em>
         <br><br>
         <strong>Команда 2 — unlimited approval на USDT (опасно):</strong>
-        <pre>cargo run -p qallet -- analyze \
+        <pre>cargo run -p rustok -- analyze \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0x095ea7b3000000000000000000000000000000000000000000000000000000000000deadffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff</pre>
         Результат: <code>"action": "warn"</code>, <code>"risk_score": 27</code>, finding: <code>unlimited_approval</code>
@@ -292,7 +292,7 @@
 
     <div class="scene-section">
       <div class="section-label label-screen"><span class="dot dot-blue"></span>Экран</div>
-      <div class="section-content">Таблица: MetaMask vs Rabby vs Particle vs Qallet. Колонка Qallet подсвечена синим.</div>
+      <div class="section-content">Таблица: MetaMask vs Rabby vs Particle vs Rustok. Колонка Rustok подсвечена синим.</div>
     </div>
 
     <div class="scene-section">
@@ -321,7 +321,7 @@
 
     <div class="scene-section">
       <div class="section-label label-screen"><span class="dot dot-blue"></span>Экран</div>
-      <div class="section-content">Большая "Q", "Qallet", "100% Rust. Open Source. One Developer.", github ссылка.</div>
+      <div class="section-content">Большая "Q", "Rustok", "100% Rust. Open Source. One Developer.", github ссылка.</div>
     </div>
 
     <div class="scene-section">
@@ -331,7 +331,7 @@
 
     <div class="scene-section">
       <div class="section-label label-voice"><span class="dot dot-green"></span>Озвучка (RU)</div>
-      <div class="voice-text">Qallet. 100% Rust. Zero compromise. Ссылка на GitHub в описании.</div>
+      <div class="voice-text">Rustok. 100% Rust. Zero compromise. Ссылка на GitHub в описании.</div>
     </div>
   </div>
 
@@ -341,11 +341,11 @@
     <ul>
       <li><strong>0:00</strong> — slides.html слайд #1 (Title) — полный экран F11</li>
       <li><strong>0:08</strong> — slides.html слайд #2 (Problem)</li>
-      <li><strong>0:22</strong> — Cmd+Tab → браузер GitHub repo temrjan/qallet</li>
+      <li><strong>0:22</strong> — Cmd+Tab → браузер GitHub repo temrjan/rustok</li>
       <li><strong>0:38</strong> — slides.html слайд #5 (Architecture)</li>
       <li><strong>0:48</strong> — slides.html слайд #4 (Tech Stack)</li>
       <li><strong>1:00</strong> — Cmd+Tab → терминал → cargo test</li>
-      <li><strong>1:15</strong> — терминал → cargo run -p qallet -- --help</li>
+      <li><strong>1:15</strong> — терминал → cargo run -p rustok -- --help</li>
       <li><strong>1:25</strong> — терминал → analyze (safe transfer)</li>
       <li><strong>1:45</strong> — терминал → analyze (unlimited approval)</li>
       <li><strong>2:05</strong> — Cmd+Tab → slides.html слайд #9 (Comparison)</li>
@@ -357,8 +357,8 @@
     <h3>Окна (подготовить заранее)</h3>
     <ul>
       <li>Браузер 1: slides.html на слайде #1, полный экран (F11)</li>
-      <li>Браузер 2: github.com/temrjan/qallet (отдельная вкладка или окно)</li>
-      <li>Терминал: шрифт 16-18pt, тёмная тема, cd в /Users/avangard/Workspace/projects/qallet</li>
+      <li>Браузер 2: github.com/temrjan/rustok (отдельная вкладка или окно)</li>
+      <li>Терминал: шрифт 16-18pt, тёмная тема, cd в /Users/avangard/Workspace/projects/rustok</li>
     </ul>
 
     <h3>Терминал: команды подготовить заранее</h3>

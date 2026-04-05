@@ -1,19 +1,19 @@
-//! Qallet CLI — wallet operations and transaction security analysis.
+//! Rustok CLI — wallet operations and transaction security analysis.
 //!
 //! Usage:
-//!   qallet decode  --to 0x... --data 0x...                              # Parse calldata
-//!   qallet analyze --to 0x... --data 0x...                              # Security analysis
-//!   qallet wallet new                                                     # Generate wallet
-//!   qallet wallet balance <address>                                       # Unified balance
-//!   qallet wallet info --keystore <path>                                  # Show wallet info
-//!   qallet wallet send --keystore <path> --to 0x... --amount 0.1          # Send ETH
+//!   rustok decode  --to 0x... --data 0x...                              # Parse calldata
+//!   rustok analyze --to 0x... --data 0x...                              # Security analysis
+//!   rustok wallet new                                                     # Generate wallet
+//!   rustok wallet balance <address>                                       # Unified balance
+//!   rustok wallet info --keystore <path>                                  # Show wallet info
+//!   rustok wallet send --keystore <path> --to 0x... --amount 0.1          # Send ETH
 
 use alloy_provider::Provider;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(
-    name = "qallet",
+    name = "rustok",
     version,
     about = "Ethereum wallet with transaction security"
 )]
@@ -189,7 +189,7 @@ fn cmd_analyze(to: &str, data: &str, value: &str) {
 // ─── wallet commands ────────────────────────────────────────────────
 
 fn cmd_wallet_new(password: &str, output: Option<&str>) {
-    let keyring = qallet_core::keyring::LocalKeyring::generate(password)
+    let keyring = rustok_core::keyring::LocalKeyring::generate(password)
         .unwrap_or_else(|e| exit_error(&format!("Key generation failed: {e}")));
 
     let address = keyring.address();
@@ -219,7 +219,7 @@ fn cmd_wallet_new(password: &str, output: Option<&str>) {
 }
 
 async fn cmd_wallet_balance(address_str: &str, include_testnet: bool) {
-    use qallet_core::provider::MultiProvider;
+    use rustok_core::provider::MultiProvider;
 
     let address = address_str
         .parse::<alloy_primitives::Address>()
@@ -250,7 +250,7 @@ fn cmd_wallet_info(keystore_path: &str, password: &str) {
     let encrypted = alloy_primitives::hex::decode(encrypted_hex)
         .unwrap_or_else(|e| exit_error(&format!("Invalid hex: {e}")));
 
-    let keyring = qallet_core::keyring::LocalKeyring::from_encrypted(&encrypted, password)
+    let keyring = rustok_core::keyring::LocalKeyring::from_encrypted(&encrypted, password)
         .unwrap_or_else(|e| exit_error(&format!("Decryption failed: {e}")));
 
     let info = serde_json::json!({
@@ -268,9 +268,9 @@ async fn cmd_wallet_send(
     chain_id: Option<u64>,
     testnet: bool,
 ) {
-    use qallet_core::explainer;
-    use qallet_core::provider::MultiProvider;
-    use qallet_core::router;
+    use rustok_core::explainer;
+    use rustok_core::provider::MultiProvider;
+    use rustok_core::router;
 
     // 1. Load keyring
     let keyring = load_keyring(keystore_path, password);
@@ -301,7 +301,7 @@ async fn cmd_wallet_send(
     // 5. Find route
     let provider = if testnet {
         // Testnet-only: filter to Sepolia
-        let chains = qallet_core::provider::default_chains()
+        let chains = rustok_core::provider::default_chains()
             .into_iter()
             .filter(|c| c.testnet)
             .collect();
@@ -416,7 +416,7 @@ async fn cmd_wallet_send(
 }
 
 /// Load keyring from keystore file.
-fn load_keyring(keystore_path: &str, password: &str) -> qallet_core::keyring::LocalKeyring {
+fn load_keyring(keystore_path: &str, password: &str) -> rustok_core::keyring::LocalKeyring {
     let json = std::fs::read_to_string(keystore_path)
         .unwrap_or_else(|e| exit_error(&format!("Failed to read keystore: {e}")));
 
@@ -430,7 +430,7 @@ fn load_keyring(keystore_path: &str, password: &str) -> qallet_core::keyring::Lo
     let encrypted = alloy_primitives::hex::decode(encrypted_hex)
         .unwrap_or_else(|e| exit_error(&format!("Invalid hex: {e}")));
 
-    qallet_core::keyring::LocalKeyring::from_encrypted(&encrypted, password)
+    rustok_core::keyring::LocalKeyring::from_encrypted(&encrypted, password)
         .unwrap_or_else(|e| exit_error(&format!("Decryption failed: {e}")))
 }
 
@@ -475,10 +475,10 @@ fn parse_eth_amount(amount: &str) -> alloy_primitives::U256 {
 
 // ─── password resolution ────────────────────────────────────────────
 
-/// Resolve password: env QALLET_PASSWORD → interactive prompt.
+/// Resolve password: env RUSTOK_PASSWORD → interactive prompt.
 /// Password is never accepted via CLI args (visible in `ps aux`).
 fn resolve_password() -> String {
-    if let Ok(env_pwd) = std::env::var("QALLET_PASSWORD") {
+    if let Ok(env_pwd) = std::env::var("RUSTOK_PASSWORD") {
         if !env_pwd.is_empty() {
             return env_pwd;
         }
@@ -486,7 +486,7 @@ fn resolve_password() -> String {
 
     rpassword::prompt_password("Enter password: ").unwrap_or_else(|e| {
         exit_error(&format!(
-            "failed to read password: {e}\nSet QALLET_PASSWORD env or run interactively"
+            "failed to read password: {e}\nSet RUSTOK_PASSWORD env or run interactively"
         ))
     })
 }
@@ -494,7 +494,7 @@ fn resolve_password() -> String {
 /// Resolve password for wallet creation (prompts twice for confirmation).
 /// Password is never accepted via CLI args (visible in `ps aux`).
 fn resolve_password_new() -> String {
-    if let Ok(env_pwd) = std::env::var("QALLET_PASSWORD") {
+    if let Ok(env_pwd) = std::env::var("RUSTOK_PASSWORD") {
         if !env_pwd.is_empty() {
             return env_pwd;
         }

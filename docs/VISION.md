@@ -102,7 +102,7 @@ Ethereum в 2026 — это десятки L2/L3 сетей. Для пользо
 1. **Мобильное приложение** — iOS + Android через Tauri 2.0. Основной продукт.
 2. **Desktop** — macOS, Windows, Linux. Бесплатно через тот же Tauri build.
 3. **txguard** — open-source Rust crate. Библиотека защиты транзакций. Самостоятельный продукт.
-4. **CLI** — `qallet analyze 0x...` для разработчиков и исследователей.
+4. **CLI** — `rustok analyze 0x...` для разработчиков и исследователей.
 
 ---
 
@@ -182,14 +182,14 @@ NLP команды, AI-объяснения транзакций, полноце
 ## Архитектура приложения
 
 ```
-qallet/
+rustok/
 ├── crates/
 │   ├── txguard/    — движок безопасности (самостоятельный crate)
 │   ├── core/       — wallet core (keyring, provider, router, explainer)
 │   └── cli/        — CLI для разработчиков
 ├── app/
 │   ├── src-tauri/  — Tauri backend (tauri::command → wallet-core)
-│   └── src/        — React UI (вызывает core через invoke())
+│   └── src/        — Leptos UI (вызывает core через invoke())
 ```
 
 UI вызывает Rust core напрямую через `tauri::command` — без HTTP, без WASM.

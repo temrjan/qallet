@@ -25,12 +25,12 @@
 
 ### КАДР 2 — INTRO ПРОЕКТА [0:08–0:25]
 
-**Экран:** GitHub repo `temrjan/qallet` — главная страница, README виден. Скролл медленный вниз по README.
+**Экран:** GitHub repo `temrjan/rustok` — главная страница, README виден. Скролл медленный вниз по README.
 
 **Кружок:** Говоришь, жесты руками.
 
 **Озвучка (RU):**
-> «Это Qallet — Ethereum кошелёк с chain abstraction и встроенным security engine. 100% Rust. Один разработчик. Я пишу его вместе с Claude Code — AI-ассистентом от Anthropic — по системе стандартов, которую мы называем Codex.»
+> «Это Rustok — Ethereum кошелёк с chain abstraction и встроенным security engine. 100% Rust. Один разработчик. Я пишу его вместе с Claude Code — AI-ассистентом от Anthropic — по системе стандартов, которую мы называем Codex.»
 
 ---
 
@@ -81,7 +81,7 @@ cargo test --workspace
 **Экран:** Терминал.
 
 ```bash
-cargo run -p qallet -- --help
+cargo run -p rustok -- --help
 ```
 
 Показать список команд: decode, analyze, wallet (new, balance, info, send).
@@ -99,7 +99,7 @@ cargo run -p qallet -- --help
 
 **Команда 1 — безопасный transfer:**
 ```bash
-cargo run -p qallet -- analyze \
+cargo run -p rustok -- analyze \
   --to 0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045 \
   --value 1000000000000000000
 ```
@@ -109,7 +109,7 @@ cargo run -p qallet -- analyze \
 
 **Команда 2 — unlimited approval (опасно):**
 ```bash
-cargo run -p qallet -- analyze \
+cargo run -p rustok -- analyze \
   --to 0xdAC17F958D2ee523a2206206994597C13D831ec7 \
   --data 0x095ea7b3000000000000000000000000000000000000000000000000000000000000deadffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
 ```
@@ -128,7 +128,7 @@ cargo run -p qallet -- analyze \
 **Экран:** Таблица сравнения (можно подготовить картинку или показать из README):
 
 ```
-         | MetaMask  | Rabby     | Qallet
+         | MetaMask  | Rabby     | Rustok
 ---------|-----------|-----------|--------
 Security | Blockaid  | DeBank    | txguard
          | (закрыт)  | (сервер)  | (open, local)
@@ -147,16 +147,16 @@ Source   | Open      | Open      | Open
 
 **Экран:** Чёрный фон → текст появляется:
 ```
-Qallet
+Rustok
 100% Rust. Zero compromise.
 
-github.com/temrjan/qallet
+github.com/temrjan/rustok
 ```
 
 **Кружок:** Смотришь в камеру.
 
 **Озвучка (RU):**
-> «Qallet. 100% Rust. Zero compromise. Ссылка на GitHub в описании.»
+> «Rustok. 100% Rust. Zero compromise. Ссылка на GitHub в описании.»
 
 ---
 

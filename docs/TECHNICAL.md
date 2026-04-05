@@ -8,7 +8,7 @@
 ## 1. Workspace Layout
 
 ```
-qallet/
+rustok/
 ├── Cargo.toml                    # Workspace root
 ├── LICENSE-MIT
 ├── LICENSE-APACHE
@@ -117,7 +117,7 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/temrjan/qallet"
+repository = "https://github.com/temrjan/rustok"
 
 [workspace.lints.rust]
 missing-docs = "warn"
@@ -179,7 +179,7 @@ tokio = { version = "1", features = ["test-util"] }
 
 ```toml
 [package]
-name = "qallet-core"
+name = "rustok-core"
 version.workspace = true
 edition.workspace = true
 
@@ -224,12 +224,12 @@ tracing = "0.1"
 
 ```toml
 [package]
-name = "qallet"
+name = "rustok"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-qallet-core = { path = "../core" }
+rustok-core = { path = "../core" }
 txguard = { path = "../txguard" }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
@@ -241,12 +241,12 @@ serde_json = "1"
 
 ```toml
 [package]
-name = "qallet-api"
+name = "rustok-api"
 version.workspace = true
 edition.workspace = true
 
 [dependencies]
-qallet-core = { path = "../core" }
+rustok-core = { path = "../core" }
 txguard = { path = "../txguard" }
 axum = "0.8"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

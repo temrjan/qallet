@@ -1,4 +1,4 @@
-# Qallet — Rust Ethereum Wallet
+# Rustok — Rust Ethereum Wallet
 
 ## Цель
 

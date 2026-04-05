@@ -49,7 +49,7 @@
 ## Структура проекта
 
 ```
-qallet/
+rustok/
 ├── crates/                          # Существующий workspace
 │   ├── txguard/                     # Движок безопасности (не трогаем)
 │   ├── core/                        # Wallet core (не трогаем)
@@ -59,14 +59,14 @@ qallet/
 │       └── src/lib.rs               # Serde-совместимые DTO
 ├── app/                             # NEW: Tauri приложение
 │   ├── src-tauri/                   # Tauri backend
-│   │   ├── Cargo.toml              # tauri, qallet-core, txguard, qallet-types
+│   │   ├── Cargo.toml              # tauri, rustok-core, txguard, rustok-types
 │   │   ├── src/
 │   │   │   ├── main.rs             # tauri::Builder + команды
 │   │   │   └── commands.rs         # tauri::command функции
 │   │   ├── tauri.conf.json
 │   │   └── capabilities/
 │   └── src/                         # Leptos frontend
-│       ├── Cargo.toml              # leptos, qallet-types, wasm-bindgen, serde
+│       ├── Cargo.toml              # leptos, rustok-types, wasm-bindgen, serde
 │       ├── src/
 │       │   ├── main.rs             # mount_to_body(App)
 │       │   ├── app.rs              # Router + Shell
@@ -141,7 +141,7 @@ pub struct WalletInfo {
 `Cargo.toml`:
 ```toml
 [package]
-name = "qallet-types"
+name = "rustok-types"
 version = "0.1.0"  # явная версия — crate используется вне workspace (app/)
 edition = "2021"   # 2021 для совместимости с WASM/Leptos
 
@@ -150,8 +150,8 @@ serde = { version = "1", features = ["derive"] }
 ```
 
 **Зависимости:**
-- `app/src-tauri/Cargo.toml` → `qallet-types = { path = "../../crates/types" }`
-- `app/src/Cargo.toml` → `qallet-types = { path = "../../crates/types" }` (компилируется в WASM)
+- `app/src-tauri/Cargo.toml` → `rustok-types = { path = "../../crates/types" }`
+- `app/src/Cargo.toml` → `rustok-types = { path = "../../crates/types" }` (компилируется в WASM)
 
 ---
 
@@ -161,12 +161,12 @@ serde = { version = "1", features = ["derive"] }
 
 ```toml
 [package]
-name = "qallet-desktop"
+name = "rustok-desktop"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "qallet_desktop_lib"
+name = "rustok_desktop_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
@@ -174,9 +174,9 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
-qallet-core = { path = "../../crates/core" }
+rustok-core = { path = "../../crates/core" }
 txguard = { path = "../../crates/txguard" }
-qallet-types = { path = "../../crates/types" }
+rustok-types = { path = "../../crates/types" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
@@ -185,8 +185,8 @@ tokio = { version = "1", features = ["full"] }
 ### commands.rs
 
 ```rust
-use qallet_core::provider::MultiProvider;
-use qallet_types::UnifiedBalance;
+use rustok_core::provider::MultiProvider;
+use rustok_types::UnifiedBalance;
 
 #[tauri::command]
 pub async fn get_balance(address: String) -> Result<UnifiedBalance, String> {
@@ -241,14 +241,14 @@ pub fn run() {
 
 ```toml
 [package]
-name = "qallet-frontend"
+name = "rustok-frontend"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 leptos = { version = "0.8", features = ["csr"] }
 leptos_router = { version = "0.8", features = ["csr"] }
-qallet-types = { path = "../../crates/types" }
+rustok-types = { path = "../../crates/types" }
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 wasm-bindgen = "0.2"
@@ -330,7 +330,7 @@ pub fn App() -> impl IntoView {
 
 ```rust
 use leptos::prelude::*;
-use qallet_types::UnifiedBalance;
+use rustok_types::UnifiedBalance;
 use serde::Serialize;
 use crate::tauri::tauri_invoke;
 
@@ -424,7 +424,7 @@ ws_protocol = "ws"
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Qallet</title>
+    <title>Rustok</title>
     <link data-trunk rel="css" href="styles/main.css" />
 </head>
 <body></body>
@@ -435,9 +435,9 @@ ws_protocol = "ws"
 
 ```json
 {
-  "productName": "Qallet",
+  "productName": "Rustok",
   "version": "0.1.0",
-  "identifier": "com.qallet.app",
+  "identifier": "com.rustok.app",
   "build": {
     "beforeDevCommand": "cd ../src && trunk serve",
     "devUrl": "http://localhost:1420",
@@ -451,7 +451,7 @@ ws_protocol = "ws"
     },
     "windows": [
       {
-        "title": "Qallet",
+        "title": "Rustok",
         "width": 420,
         "height": 720,
         "resizable": true,
@@ -544,12 +544,12 @@ npm install -g tailwindcss
 
 Шаг 2 — app/src-tauri:
   [ ] cargo tauri init в app/
-  [ ] Подключить path deps: qallet-core, txguard, qallet-types
+  [ ] Подключить path deps: rustok-core, txguard, rustok-types
   [ ] Написать commands.rs с get_balance
   [ ] cargo tauri dev — окно открывается
 
 Шаг 3 — app/src (Leptos):
-  [ ] Cargo.toml с leptos CSR + qallet-types
+  [ ] Cargo.toml с leptos CSR + rustok-types
   [ ] trunk serve — WASM собирается
   [ ] tauri.rs bridge — invoke работает
   [ ] BalancePage — баланс отображается

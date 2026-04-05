@@ -1,4 +1,4 @@
-//! # qallet-core
+//! # rustok-core
 //!
 //! Core wallet logic: provider, keyring, router, explainer.
 //!

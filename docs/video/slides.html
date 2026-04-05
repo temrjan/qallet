@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Qallet — Presentation</title>
+<title>Rustok — Presentation</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif; background: #050505; color: #e0e0e0; overflow: hidden; height: 100vh; width: 100vw; }
@@ -112,7 +112,7 @@
   <!-- SLIDE 1: Title -->
   <div class="slide active" data-slide="1">
     <div class="slide-label">Open Source Ethereum Wallet</div>
-    <div class="slide-title">Qallet</div>
+    <div class="slide-title">Rustok</div>
     <div class="slide-subtitle">Chain abstraction + transaction security engine</div>
     <div class="tagline">100% Rust &middot; Zero Compromise</div>
   </div>
@@ -219,15 +219,15 @@
         <div class="card-desc" style="color:#aaa;">Transaction security engine. Parser, rules, simulator, enrichment. Independent crate — any wallet can use it.</div>
       </div>
       <div class="card" style="border-color:#1a2a1a;">
-        <div class="card-title"><span class="accent-green">qallet-core</span></div>
+        <div class="card-title"><span class="accent-green">rustok-core</span></div>
         <div class="card-desc" style="color:#aaa;">Wallet logic. Encrypted keyring (AES-256-GCM + Argon2id), multi-chain provider, smart router, explainer.</div>
       </div>
       <div class="card" style="border-color:#2a2a1a;">
-        <div class="card-title"><span class="accent-orange">qallet (CLI)</span></div>
+        <div class="card-title"><span class="accent-orange">rustok (CLI)</span></div>
         <div class="card-desc" style="color:#aaa;">Command-line interface. decode, analyze, wallet new/balance/info/send. Thin wrapper over core + txguard.</div>
       </div>
       <div class="card" style="border-color:#1a1a1a;">
-        <div class="card-title"><span class="accent-dim">qallet-api</span></div>
+        <div class="card-title"><span class="accent-dim">rustok-api</span></div>
         <div class="card-desc" style="color:#666;">HTTP API server (axum). POST /analyze, POST /send, GET /balance. Coming soon.</div>
       </div>
     </div>
@@ -351,7 +351,7 @@
     <div class="slide-label">Competitive Landscape</div>
     <div style="height:20px"></div>
     <table class="comp-table">
-      <tr><th></th><th>MetaMask</th><th>Rabby</th><th>Particle</th><th>Qallet</th></tr>
+      <tr><th></th><th>MetaMask</th><th>Rabby</th><th>Particle</th><th>Rustok</th></tr>
       <tr><td class="col-label">Unified Balance</td><td>No</td><td>Display only</td><td>Yes</td><td class="win">Yes</td></tr>
       <tr><td class="col-label">Cross-chain</td><td>No</td><td>No</td><td>Yes</td><td class="win">Yes (planned)</td></tr>
       <tr><td class="col-label">Tx Protection</td><td>Blockaid (closed)</td><td>DeBank (server)</td><td>No</td><td class="win">txguard (open, local)</td></tr>
@@ -408,12 +408,12 @@
   <!-- SLIDE 11: Closing -->
   <div class="slide" data-slide="11">
     <div class="logo-q">Q</div>
-    <div class="slide-title" style="font-size:64px;">Qallet</div>
+    <div class="slide-title" style="font-size:64px;">Rustok</div>
     <div class="slide-subtitle" style="font-size:24px; color:#aaa; margin-bottom:8px;">Ethereum wallet with chain abstraction + txguard security engine</div>
     <div style="height:24px"></div>
     <div style="font-size:18px; letter-spacing:6px; color:#4a9eff; text-transform:uppercase;">100% Rust &middot; Open Source &middot; One Developer</div>
     <div style="height:32px"></div>
-    <div style="font-size:16px; color:#444;">github.com/temrjan/qallet</div>
+    <div style="font-size:16px; color:#444;">github.com/temrjan/rustok</div>
     <div class="tagline">Zero Compromise</div>
   </div>
 

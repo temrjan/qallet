@@ -1,4 +1,4 @@
-# cargo-deny configuration for Qallet
+# cargo-deny configuration for Rustok
 # Run: cargo deny check
 
 [graph]

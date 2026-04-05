@@ -1,6 +1,6 @@
 [package]
-name = "qallet"
-description = "CLI for txguard and qallet wallet"
+name = "rustok"
+description = "CLI for txguard and Rustok wallet"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,7 +11,7 @@ workspace = true
 
 [dependencies]
 txguard = { path = "../txguard" }
-qallet-core = { path = "../core" }
+rustok-core = { path = "../core" }
 alloy-primitives = { workspace = true }
 alloy-provider = { workspace = true }
 alloy-network = { workspace = true }
