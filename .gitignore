@@ -1,7 +1,12 @@
 # Rust
 /target/
+**/target/
 **/*.rs.bk
 # Cargo.lock коммитим — есть бинарники (cli, api)
+
+# Tauri / Trunk build artifacts
+app/dist/
+app/src-tauri/gen/
 
 # IDE
 .idea/

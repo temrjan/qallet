@@ -2,7 +2,7 @@
 > Date: 2026-04-05 (updated)
 > Previous review: 2026-04-02
 > Standard: Codex rust.md v1.0 + architecture.md v1.1
-> Status: Phase 1 — txguard + core + CLI functional, wallet send next
+> Status: Phase 1 DONE (69 tests, 0 must-fix). Phase 2 starting.
 
 ---
 
@@ -18,25 +18,15 @@
 | ~~C2~~ | Новый provider на каждый call | Shared `reqwest::Client` (коммит 6379417) |
 | ~~C5~~ | Нет `unsafe_code = "deny"` | Добавлен в workspace lints (Cargo.toml:18) |
 | ~~C10~~ | Нет deny.toml | Добавлен cargo-deny (коммит 4fb3117) |
+| ~~M1~~ | `--password` в CLI args | Убран. `resolve_password()` через env/rpassword (коммит af31c52) |
+| ~~M2~~ | i128 cap без документации | Задокументирован комментарием (simulator/mod.rs:129-130, коммит af31c52) |
+| ~~M3~~ | `total_formatted` вводит в заблуждение | Переименован в `approximate_total_formatted` (multi.rs:73, коммит af31c52) |
 
 ---
 
-## Must fix (3 remaining)
+## Must fix (0 remaining)
 
-### 1. `crates/cli/src/main.rs` — Пароль всё ещё можно передать через CLI args
-`password: Option<String>` с `#[arg(long)]` — `--password "secret"` виден в `ps aux`.
-Интерактивный ввод через `rpassword` уже добавлен (main.rs:500,519,521), но `--password` флаг не убран.
-**Fix:** убрать `--password` из CLI args, оставить только `rpassword` prompt + `env = "RUSTOK_PASSWORD"`.
-
-### 2. `crates/txguard/src/simulator/mod.rs:129` — i128 cap для eth_change
-`value.try_into().unwrap_or(i128::MAX)` — теряет precision для значений > 170 141 183 ETH.
-Практически недостижимо (total supply ETH ~120M), но нарушает принцип точности.
-**Fix:** документировать лимит комментарием, или использовать `I256` из alloy-primitives.
-
-### 3. `crates/core/src/provider/multi.rs:129` — Cross-chain total caveat
-`total` суммирует ETH с разных L2, но это не fungible — нельзя потратить Arbitrum ETH на Base.
-Документация добавлена (multi.rs:129 doc-comment), но `total_formatted` в структуре `UnifiedBalance` может ввести в заблуждение UI-потребителя.
-**Fix:** переименовать в `approximate_total_formatted` или добавить поле `is_approximate: true`.
+Все must-fix закрыты. Phase 1 чиста.
 
 ---
 
@@ -70,9 +60,9 @@
 
 ## Next steps
 
-1. Fix must-fix #1 (убрать --password из CLI args)
-2. Fix must-fix #3 (approximate_total)
-3. Добавить overflow-checks в release profile
-4. Implement wallet send
-5. Добавить custom Drop для LocalKeyring (zeroize on drop)
-6. Push + verify CI
+1. **Phase 2: Desktop app (Tauri 2.0 + Leptos)**
+   - See `docs/PHASE2-LEPTOS-TAURI.md` for implementation guide
+   - Шаги: types crate → Tauri scaffold → Leptos frontend → commands → pages
+2. Добавить overflow-checks в release profile (Consider #2)
+3. Добавить custom Drop для LocalKeyring (zeroize on drop) (Consider #7)
+4. Push + verify CI

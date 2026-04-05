@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 txguard = { path = "../txguard" }
+rustok-types = { path = "../types" }
 
 # Ethereum
 alloy-primitives = { workspace = true }

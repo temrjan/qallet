@@ -433,6 +433,28 @@ fn serialize_u256<S: serde::Serializer>(value: &U256, serializer: S) -> Result<S
     serializer.serialize_str(&value.to_string())
 }
 
+// ─── DTO conversions ────────────────────────────────────────────────
+
+impl From<UnifiedBalance> for rustok_types::UnifiedBalance {
+    fn from(b: UnifiedBalance) -> Self {
+        Self {
+            approximate_total_formatted: b.approximate_total_formatted,
+            chains: b.chains.into_iter().map(Into::into).collect(),
+            errors: b.errors,
+        }
+    }
+}
+
+impl From<ChainBalance> for rustok_types::ChainBalance {
+    fn from(b: ChainBalance) -> Self {
+        Self {
+            chain_id: b.chain_id,
+            chain_name: b.chain_name,
+            formatted: b.formatted,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

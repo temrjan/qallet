@@ -1,0 +1,22 @@
+[package]
+name = "rustok-desktop"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+[lib]
+name = "rustok_desktop_lib"
+crate-type = ["rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+rustok-core = { path = "../../crates/core" }
+txguard = { path = "../../crates/txguard" }
+rustok-types = { path = "../../crates/types" }
+alloy-primitives = "1.5"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

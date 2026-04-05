@@ -21,7 +21,7 @@
 
 - Core: Rust 2024, alloy-rs 1.8, revm v36, tokio
 - App: Tauri 2.0 (iOS, Android, Desktop)
-- UI: React + TypeScript (внутри Tauri web view)
+- UI: Leptos 0.8 (full Rust, CSR → WASM) + Tailwind CSS
 - CLI: clap 4
 - Codex стандарт: `~/Codex/standards/rust.md`
 
@@ -30,15 +30,16 @@
 ```
 crates/txguard  — движок безопасности транзакций (самостоятельный crate)
 crates/core     — кошелёк (keyring, provider, router, explainer)
+crates/types    — shared DTO для core ↔ frontend (Serialize + Deserialize)
 crates/cli      — CLI обёртка
 app/src-tauri   — Tauri backend (tauri::command → core)
-app/src         — React UI
+app/src         — Leptos UI (WASM, вызывает backend через invoke())
 ```
 
 ## Фазы
 
 - Phase 1: txguard + core + CLI ✅ DONE
-- Phase 2: Desktop app (Tauri + React) ← ТЕКУЩАЯ
+- Phase 2: Desktop app (Tauri 2.0 + Leptos) ← ТЕКУЩАЯ
 - Phase 3: Mobile (iOS + Android, кросс-компиляция)
 - Phase 4: Cross-chain (Across Protocol)
 - Phase 5: AI + Polish

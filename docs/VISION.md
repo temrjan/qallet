@@ -90,7 +90,7 @@ Ethereum в 2026 — это десятки L2/L3 сетей. Для пользо
 | Ethereum primitives | alloy-rs | Стандарт индустрии, заменил ethers-rs |
 | EVM simulation | revm | Локальная симуляция транзакций |
 | App shell | Tauri 2.0 | Один Rust core → iOS, Android, Desktop |
-| UI | React + TypeScript | Быстрая итерация, экосистема компонентов |
+| UI | Leptos 0.8 (Rust → WASM) + Tailwind | Full Rust stack, shared types с core без маппинга |
 | CLI | clap | Для разработчиков |
 | Key storage | Passkey + MPC | Без seed-фраз |
 | Cross-chain | Across Protocol (intents) | Open source, intent-based |
@@ -148,7 +148,7 @@ Parser + Simulator + Rules Engine + CLI (decode, analyze, wallet new/balance/sen
 69 тестов, 0 must-fix.
 
 **Phase 2 — Desktop приложение (Tauri 2.0)**
-Tauri app для macOS. React UI + Rust core через tauri::command.
+Tauri app для macOS. Leptos UI (Rust → WASM) + Rust core через tauri::command.
 Unified balance + single-chain send + txguard protection.
 
 **Phase 3 — Мобильное приложение (iOS + Android)**
@@ -192,5 +192,6 @@ rustok/
 │   └── src/        — Leptos UI (вызывает core через invoke())
 ```
 
-UI вызывает Rust core напрямую через `tauri::command` — без HTTP, без WASM.
-Один и тот же Rust код работает на всех платформах.
+Leptos UI компилируется в WASM и работает в Tauri webview.
+Бизнес-логика вызывается через `tauri::command` (invoke) — без HTTP.
+Один и тот же Rust core работает на всех платформах.

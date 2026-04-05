@@ -777,7 +777,7 @@ Phase 3: HTTP API
 └── Результат: API для интеграции
 
 Phase 4: Web UI
-├── Leptos или React+WASM (решить на основе Phase 1-3 опыта)
+├── Leptos 0.8 (full Rust → WASM) + Tailwind CSS
 ├── Главная → баланс, история
 ├── Отправить → форма + AI объяснение
 ├── Настройки → экспорт ключа

@@ -1,0 +1,8 @@
+{
+  "identifier": "default",
+  "description": "Default capabilities for Rustok",
+  "windows": ["main"],
+  "permissions": [
+    "core:default"
+  ]
+}
