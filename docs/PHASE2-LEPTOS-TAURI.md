@@ -89,21 +89,26 @@ qallet/
 
 Ключевое преимущество full Rust: один набор типов для core и frontend.
 
+**Подход:** перенести `UnifiedBalance`, `ChainBalance` и т.д. из `core/provider/multi.rs` 
+в `crates/types/`, добавить `Deserialize`. Core и frontend используют один тип — 
+нулевое дублирование, нулевой маппинг.
+
 ```rust
 // crates/types/src/lib.rs
 
 use serde::{Deserialize, Serialize};
 
-/// Balance response — используется и в core, и в Leptos frontend.
+/// Unified balance across all chains.
+/// Используется и в core (Serialize), и в frontend WASM (Deserialize).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BalanceResponse {
+pub struct UnifiedBalance {
     pub approximate_total_formatted: String,
-    pub chains: Vec<ChainBalanceDto>,
+    pub chains: Vec<ChainBalance>,
     pub errors: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ChainBalanceDto {
+pub struct ChainBalance {
     pub chain_id: u64,
     pub chain_name: String,
     pub formatted: String,
@@ -137,8 +142,8 @@ pub struct WalletInfo {
 ```toml
 [package]
 name = "qallet-types"
-version.workspace = true
-edition = "2021"  # 2021 для совместимости с WASM/Leptos
+version = "0.1.0"  # явная версия — crate используется вне workspace (app/)
+edition = "2021"   # 2021 для совместимости с WASM/Leptos
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -181,26 +186,17 @@ tokio = { version = "1", features = ["full"] }
 
 ```rust
 use qallet_core::provider::MultiProvider;
-use qallet_types::{AnalysisResponse, BalanceResponse, ChainBalanceDto, FindingDto, WalletInfo};
+use qallet_types::UnifiedBalance;
 
 #[tauri::command]
-pub async fn get_balance(address: String) -> Result<BalanceResponse, String> {
+pub async fn get_balance(address: String) -> Result<UnifiedBalance, String> {
     let addr = address
         .parse()
         .map_err(|e| format!("Invalid address: {e}"))?;
 
     let provider = MultiProvider::mainnets_only();
-    let balance = provider.unified_balance(addr).await;
-
-    Ok(BalanceResponse {
-        approximate_total_formatted: balance.approximate_total_formatted,
-        chains: balance.chains.iter().map(|c| ChainBalanceDto {
-            chain_id: c.chain_id,
-            chain_name: c.chain_name.clone(),
-            formatted: c.formatted.clone(),
-        }).collect(),
-        errors: balance.errors,
-    })
+    Ok(provider.unified_balance(addr).await)
+    // Нулевой маппинг — UnifiedBalance из types crate используется напрямую
 }
 
 #[tauri::command]
@@ -266,7 +262,6 @@ console_error_panic_hook = "0.1"
 ```rust
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
-use wasm_bindgen_futures::JsFuture;
 
 #[wasm_bindgen]
 extern "C" {
@@ -335,7 +330,7 @@ pub fn App() -> impl IntoView {
 
 ```rust
 use leptos::prelude::*;
-use qallet_types::BalanceResponse;
+use qallet_types::UnifiedBalance;
 use serde::Serialize;
 use crate::tauri::tauri_invoke;
 
@@ -347,7 +342,7 @@ struct BalanceArgs {
 #[component]
 pub fn BalancePage() -> impl IntoView {
     let (address, set_address) = signal(String::new());
-    let (balance, set_balance) = signal(None::<BalanceResponse>);
+    let (balance, set_balance) = signal(None::<UnifiedBalance>);
     let (error, set_error) = signal(None::<String>);
     let (loading, set_loading) = signal(false);
 
@@ -358,7 +353,7 @@ pub fn BalancePage() -> impl IntoView {
         set_error.set(None);
 
         spawn_local(async move {
-            match tauri_invoke::<_, BalanceResponse>(
+            match tauri_invoke::<_, UnifiedBalance>(
                 "get_balance",
                 &BalanceArgs { address: addr },
             ).await {
@@ -528,11 +523,17 @@ npm install -g tailwindcss
 ## Чеклист для следующей сессии
 
 ```
-Перед началом:
+СТОП — сначала toolchain (без этого ничего не запустится):
+  [ ] rustup target add wasm32-unknown-unknown
+  [ ] cargo install trunk --locked
+  [ ] cargo install tauri-cli --version "^2.10" --locked
+  Проверить: rustup target list --installed | grep wasm
+  Проверить: trunk --version
+  Проверить: cargo tauri --version
+
+Затем:
   [ ] cargo test — core всё ещё зелёный
-  [ ] rustup target list --installed — есть wasm32-unknown-unknown
-  [ ] which trunk — Trunk установлен
-  [ ] cargo tauri --version — Tauri CLI установлен
+  [ ] git log --oneline -10 — что менялось
   [ ] Прочитать этот документ
 
 Шаг 1 — crates/types:
