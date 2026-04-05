@@ -5,6 +5,8 @@
 all-features = true
 
 [advisories]
+# Tauri pulls GTK/GLib/ATK bindings marked "unmaintained" — all transitive, no action from us.
+unmaintained = "warn"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is transitive dep via revm, no alternative yet" },
 ]
