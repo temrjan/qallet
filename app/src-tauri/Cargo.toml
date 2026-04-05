@@ -1,9 +1,18 @@
 [package]
 name = "rustok-desktop"
 version = "0.1.0"
+# edition 2021: Tauri 2 macros not yet tested with edition 2024
 edition = "2021"
 rust-version = "1.85"
 publish = false
+
+# App crate — inherit core safety lints but relax docs/visibility (not a library)
+[lints.rust]
+unsafe_code = "deny"
+unused-must-use = "deny"
+
+[lints.clippy]
+all = "warn"
 
 [lib]
 name = "rustok_desktop_lib"

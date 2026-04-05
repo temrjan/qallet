@@ -11,12 +11,17 @@ use tauri::{Manager, State};
 /// Shared application state across all commands.
 pub struct AppState {
     pub provider: MultiProvider,
+    /// NOTE: std::sync::Mutex — lock must never be held across .await points.
+    /// Acceptable for desktop app with low concurrency. Switch to tokio::sync::Mutex
+    /// if adding .await inside locked sections.
     pub wallet: Mutex<Option<WalletState>>,
 }
 
 /// Currently active wallet.
 pub struct WalletState {
     pub keyring: LocalKeyring,
+    /// Path to keystore JSON on disk (for future export/backup).
+    #[allow(dead_code)]
     pub keystore_path: std::path::PathBuf,
 }
 
@@ -115,7 +120,7 @@ pub async fn create_wallet(
     std::fs::create_dir_all(&data_dir)
         .map_err(|e| format!("failed to create data dir: {e}"))?;
 
-    let filename = format!("{address:#x}.json");
+    let filename = format!("{address}.json");
     let keystore_path = data_dir.join(&filename);
 
     // Same format as CLI: { version, address, encrypted_key }
@@ -128,6 +133,13 @@ pub async fn create_wallet(
         .map_err(|e| format!("failed to serialize keystore: {e}"))?;
     std::fs::write(&keystore_path, &json)
         .map_err(|e| format!("failed to save keystore: {e}"))?;
+
+    // Restrict keystore file permissions to owner-only (0600).
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = std::fs::set_permissions(&keystore_path, std::fs::Permissions::from_mode(0o600));
+    }
 
     // Store in app state for subsequent commands.
     let mut wallet_lock = state

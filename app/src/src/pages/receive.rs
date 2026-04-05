@@ -31,6 +31,7 @@ pub fn ReceivePage() -> impl IntoView {
                 (Some(addr), Some(svg)) => view! {
                     <div class="text-center">
                         <p class="text-gray-400 mb-2">"Scan to send ETH:"</p>
+                        // SAFETY: SVG generated server-side from validated Ethereum address
                         <div class="qr-container" inner_html=svg />
                         <p class="font-mono text-sm break-all bg-gray-800 p-4 rounded mt-4">{addr}</p>
                     </div>

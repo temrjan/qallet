@@ -90,7 +90,7 @@ Ethereum в 2026 — это десятки L2/L3 сетей. Для пользо
 | Ethereum primitives | alloy-rs | Стандарт индустрии, заменил ethers-rs |
 | EVM simulation | revm | Локальная симуляция транзакций |
 | App shell | Tauri 2.0 | Один Rust core → iOS, Android, Desktop |
-| UI | Leptos 0.8 (Rust → WASM) + Tailwind | Full Rust stack, shared types с core без маппинга |
+| UI | Leptos 0.7 (Rust → WASM) | Full Rust stack, shared types с core без маппинга |
 | CLI | clap | Для разработчиков |
 | Key storage | Passkey + MPC | Без seed-фраз |
 | Cross-chain | Across Protocol (intents) | Open source, intent-based |

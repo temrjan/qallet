@@ -21,7 +21,7 @@
 
 - Core: Rust 2024, alloy-rs 1.8, revm v36, tokio
 - App: Tauri 2.0 (iOS, Android, Desktop)
-- UI: Leptos 0.8 (full Rust, CSR → WASM) + Tailwind CSS
+- UI: Leptos 0.7 (full Rust, CSR → WASM)
 - CLI: clap 4
 - Codex стандарт: `~/Codex/standards/rust.md`
 

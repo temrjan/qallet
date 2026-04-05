@@ -2,7 +2,7 @@
 > Date: 2026-04-05 (updated)
 > Previous review: 2026-04-02
 > Standard: Codex rust.md v1.0 + architecture.md v1.1
-> Status: Phase 1 DONE (69 tests, 0 must-fix). Phase 2 starting.
+> Status: Phase 2 DONE (81 tests, 0 must-fix).
 
 ---
 
