@@ -17,7 +17,7 @@ all = "warn"
 
 [lib]
 name = "rustok_desktop_lib"
-crate-type = ["rlib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
