@@ -151,8 +151,9 @@ Tauri app для macOS. Leptos 0.7 UI (Rust → WASM) + Rust core через tau
 4 страницы: Balance (multi-chain), Analyze (txguard), Wallet (create + persist), Receive (QR).
 81 тест, CI зелёный, 0 must-fix.
 
-**Phase 3 — Мобильное приложение (iOS + Android)**
+**Phase 3 — Мобильное приложение (iOS + Android)** 🔄 IN PROGRESS
 Кросс-компиляция core на ARM targets. Tauri mobile builds.
+iOS spike done: all 4 pages running in iPhone 17 Pro Simulator (iOS 26.4).
 Passkey auth (WebAuthn). Biometric unlock.
 
 **Phase 4 — Cross-chain**

@@ -2,7 +2,7 @@
 
 Ethereum wallet with chain abstraction and transaction security engine.
 
-**Status:** Alpha — Phase 2 complete (Desktop app)
+**Status:** Alpha — Phase 3 in progress (iOS running in Simulator)
 
 ## What is this?
 
@@ -120,6 +120,19 @@ cargo tauri dev
 ```
 
 Pages: Balance (multi-chain), Analyze (txguard), Wallet (create/persist), Receive (QR code).
+
+## iOS App
+
+```bash
+# Prerequisites
+# Xcode with iOS Simulator, Cocoapods
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+
+# Run in iOS Simulator
+cargo tauri ios dev
+```
+
+Same 4 pages as desktop, with safe area insets for iPhone notch/Dynamic Island.
 
 ## Tech Stack
 

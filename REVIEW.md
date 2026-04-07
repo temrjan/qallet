@@ -64,10 +64,14 @@
 
 ## Next steps
 
-1. **Phase 3: Mobile (iOS + Android)**
-   - Кросс-компиляция core на ARM targets
-   - Tauri mobile builds (iOS + Android)
+1. **Phase 3: Mobile (iOS + Android)** — IN PROGRESS
+   - ~~Кросс-компиляция core на ARM targets~~ ✅ Done (aarch64-apple-ios-sim)
+   - ~~Tauri iOS init + spike~~ ✅ Done (all 4 pages in iPhone 17 Pro Simulator)
+   - ~~Safe area insets for iOS~~ ✅ Done (viewport-fit=cover + env() padding)
+   - Android build (Tauri android init + spike)
+   - Mobile-specific UI tweaks (touch targets, font sizes)
    - Passkey auth (WebAuthn), biometric unlock
+   - Code signing + TestFlight
 2. Добавить overflow-checks в release profile (Consider #2)
 3. Добавить custom Drop для LocalKeyring (zeroize on drop) (Consider #6)
 4. Analyze page: добавить поле value для ETH transfer analysis
