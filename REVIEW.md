@@ -65,6 +65,9 @@
 - Phase 3: 3-step Send page (input → preview → result) with preset % buttons
 - Phase 3: unlock_wallet command — keystore persistence across app restarts
 - Phase 3: Mutex lock pattern — clone signer before .await, documented
+- Phase 3: iOS UX tested on iPhone 17 Pro Simulator — all pages functional
+- Phase 3: <a> links instead of use_navigate() — reliable in iOS WebView
+- Phase 3: Balance shows "~0 ETH" not "~0", consistent formatting
 
 ---
 
@@ -77,7 +80,9 @@
    - ~~UI redesign~~ ✅ Done (bottom tab bar, Home with auto-balance, action buttons)
    - ~~Send flow~~ ✅ Done (core::send + 3-step UI: input → preview → result)
    - ~~Unlock wallet~~ ✅ Done (keystore persistence, unlock command)
+   - ~~iOS UX polish~~ ✅ Done (navigation, keyboard scroll, button consistency)
    - Android build (Tauri android init + spike)
+   - Optimize Argon2id in dev profile (unlock takes ~1-2min in debug build)
    - Mobile-specific UI tweaks (touch targets, font sizes)
    - Passkey auth (WebAuthn), biometric unlock
    - Code signing + TestFlight
