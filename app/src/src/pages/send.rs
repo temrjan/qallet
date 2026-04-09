@@ -38,8 +38,7 @@ pub fn SendPage() -> impl IntoView {
 
     // Fetch available balance on mount.
     spawn_local(async move {
-        if let Ok(b) =
-            tauri_invoke::<_, UnifiedBalance>("get_wallet_balance", &EmptyArgs {}).await
+        if let Ok(b) = tauri_invoke::<_, UnifiedBalance>("get_wallet_balance", &EmptyArgs {}).await
         {
             set_available.set(b.approximate_total_formatted);
         }
@@ -78,7 +77,10 @@ pub fn SendPage() -> impl IntoView {
         spawn_local(async move {
             match tauri_invoke::<_, SendPreviewDto>(
                 "preview_send",
-                &SendArgs { to: to_val, amount: amt_val },
+                &SendArgs {
+                    to: to_val,
+                    amount: amt_val,
+                },
             )
             .await
             {
@@ -102,7 +104,10 @@ pub fn SendPage() -> impl IntoView {
         spawn_local(async move {
             match tauri_invoke::<_, SendResponseDto>(
                 "send_eth",
-                &SendArgs { to: to_val, amount: amt_val },
+                &SendArgs {
+                    to: to_val,
+                    amount: amt_val,
+                },
             )
             .await
             {

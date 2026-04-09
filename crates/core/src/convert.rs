@@ -144,7 +144,7 @@ mod tests {
 
         let core_balance = crate::provider::UnifiedBalance {
             total: U256::from(1_000_000_000_000_000_000u128),
-            approximate_total_formatted: "~1.0 ETH".into(),
+            approximate_total_formatted: "~1 ETH".into(),
             chains: vec![crate::provider::ChainBalance {
                 chain_id: 1,
                 chain_name: "Ethereum".into(),
@@ -155,7 +155,7 @@ mod tests {
         };
 
         let dto: rustok_types::UnifiedBalance = core_balance.into();
-        assert_eq!(dto.approximate_total_formatted, "~1.0 ETH");
+        assert_eq!(dto.approximate_total_formatted, "~1 ETH");
         assert_eq!(dto.chains.len(), 1);
         assert_eq!(dto.chains[0].chain_id, 1);
         assert_eq!(dto.chains[0].formatted, "1.0");

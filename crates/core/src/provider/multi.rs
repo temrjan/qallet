@@ -164,7 +164,7 @@ impl MultiProvider {
 
         UnifiedBalance {
             total,
-            approximate_total_formatted: format!("~{}", format_wei(total, 18)),
+            approximate_total_formatted: format!("~{} ETH", format_wei(total, 18)),
             chains,
             errors,
         }

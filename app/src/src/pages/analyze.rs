@@ -49,7 +49,7 @@ pub fn AnalyzePage() -> impl IntoView {
 
     view! {
         <div>
-            <h1 class="text-2xl font-bold mb-4">"Analyze Transaction"</h1>
+            <h1 class="text-2xl font-bold mb-4">"Scan Transaction"</h1>
             <input
                 class="border border-gray-600 rounded p-2 w-full bg-gray-800 text-white mb-2"
                 placeholder="To address (0x...)"

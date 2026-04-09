@@ -4,12 +4,18 @@
     box-sizing: border-box;
 }
 
+html {
+    height: 100%;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: #09090F;
     color: #E2E8F0;
     margin: 0;
-    min-height: 100vh;
+    min-height: 100%;
     padding-top: env(safe-area-inset-top);
     padding-bottom: env(safe-area-inset-bottom);
     padding-left: env(safe-area-inset-left);
@@ -103,8 +109,8 @@ input:focus {
     justify-content: space-around;
     align-items: center;
     height: 56px;
-    background: #09090F;
-    border-top: 1px solid #1E1E2E;
+    background: #111118;
+    border-top: 1px solid #2A2A3C;
     padding-bottom: env(safe-area-inset-bottom);
     z-index: 100;
 }
@@ -134,6 +140,8 @@ input:focus {
 .app-content {
     padding: 1.5rem;
     padding-bottom: 80px; /* tab bar height + margin */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* ─── Home Page ─────────────────────────────────────────────────── */
@@ -160,7 +168,7 @@ input:focus {
     text-align: center;
     color: #CBD5E1;
     font-size: 0.875rem;
-    margin-bottom: 2rem;
+    margin-bottom: 1rem;
 }
 
 .chain-list li {
@@ -171,6 +179,7 @@ input:focus {
     display: flex;
     justify-content: center;
     gap: 1rem;
+    margin-top: 2rem;
     margin-bottom: 2rem;
 }
 

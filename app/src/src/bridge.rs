@@ -15,8 +15,7 @@ where
     A: Serialize,
     R: for<'de> Deserialize<'de>,
 {
-    let args_js =
-        serde_wasm_bindgen::to_value(args).map_err(|e| format!("serialize args: {e}"))?;
+    let args_js = serde_wasm_bindgen::to_value(args).map_err(|e| format!("serialize args: {e}"))?;
 
     let result = invoke(cmd, args_js)
         .await

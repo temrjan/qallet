@@ -44,13 +44,6 @@ pub fn HomePage() -> impl IntoView {
         set_loading.set(false);
     });
 
-    let navigate_to = |path: &'static str| {
-        move |_| {
-            let nav = leptos_router::hooks::use_navigate();
-            nav(path, Default::default());
-        }
-    };
-
     view! {
         <div>
             {move || {
@@ -114,20 +107,20 @@ pub fn HomePage() -> impl IntoView {
                                 // Error
                                 {err.map(|e| view! { <p class="text-red-400 text-center">{e}</p> })}
 
-                                // Action buttons
+                                // Action buttons — <a> links for reliable navigation
                                 <div class="action-row">
-                                    <button class="action-btn" on:click=navigate_to("/send")>
+                                    <a href="/send" class="action-btn">
                                         <span class="icon">"↑"</span>
                                         <span>"Send"</span>
-                                    </button>
-                                    <button class="action-btn" on:click=navigate_to("/receive")>
+                                    </a>
+                                    <a href="/receive" class="action-btn">
                                         <span class="icon">"↓"</span>
                                         <span>"Receive"</span>
-                                    </button>
-                                    <button class="action-btn" on:click=navigate_to("/scan")>
+                                    </a>
+                                    <a href="/scan" class="action-btn">
                                         <span class="icon">"⛨"</span>
                                         <span>"Scan"</span>
-                                    </button>
+                                    </a>
                                 </div>
                             </div>
                         }.into_any()
