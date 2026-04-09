@@ -70,3 +70,13 @@ clap = { version = "4", features = ["derive"] }
 # Logging
 tracing = "0.1"
 tracing-subscriber = "0.3"
+
+# ─── Build profiles ────────────────────────────────────────────────
+# Optimize crypto crates in dev for tolerable Argon2id unlock times.
+# Without this, password hashing takes ~1-2min in debug builds.
+
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
