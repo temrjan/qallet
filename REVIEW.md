@@ -69,6 +69,7 @@
 - Phase 3: <a> links instead of use_navigate() — reliable in iOS WebView
 - Phase 3: Balance shows "~0 ETH" not "~0", consistent formatting
 - Phase 3: Per-package opt-level=3 for argon2+blake2 — dev unlock ~12ms instead of ~1-2min
+- Phase 3: Mobile touch targets (44pt min), iOS zoom prevention, .block/.inline-block bug fix
 
 ---
 
@@ -83,8 +84,8 @@
    - ~~Unlock wallet~~ ✅ Done (keystore persistence, unlock command)
    - ~~iOS UX polish~~ ✅ Done (navigation, keyboard scroll, button consistency)
    - ~~Optimize Argon2id in dev profile~~ ✅ Done (per-package opt-level=3 for argon2+blake2, ~12ms per derive_key)
+   - ~~Mobile UI tweaks~~ ✅ Done (44pt touch targets, iOS zoom prevention, missing .block/.inline-block)
    - Android build (Tauri android init + spike)
-   - Mobile-specific UI tweaks (touch targets, font sizes)
    - Passkey auth (WebAuthn), biometric unlock
    - Code signing + TestFlight
 2. Добавить overflow-checks в release profile (Consider #2)
