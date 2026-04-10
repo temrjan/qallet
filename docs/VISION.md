@@ -148,14 +148,11 @@ Parser + Simulator + Rules Engine + CLI (decode, analyze, wallet new/balance/sen
 
 **Phase 2 — Desktop приложение (Tauri 2.0 + Leptos)** ✅ DONE
 Tauri app для macOS. Leptos 0.7 UI (Rust → WASM) + Rust core через tauri::command.
-93 теста, CI зелёный, 0 must-fix.
 
 **Phase 3 — Мобильное приложение (iOS + Android)** 🔄 IN PROGRESS
-Кросс-компиляция core на ARM targets. Tauri mobile builds.
-iOS spike done: all pages running in iPhone 17 Pro Simulator (iOS 26.4).
-UI redesign done: bottom tab bar (Home/Activity/Settings), 3-step Send flow.
-core::send module (preview + execute), unlock_wallet, auto-balance Home page.
-Passkey auth (WebAuthn). Biometric unlock. Android build.
+103 теста, CI зелёный, 0 must-fix.
+Done: iOS spike, UI redesign, Send flow, Biometric unlock (Face ID), Transaction history (Etherscan API, 5 chains).
+Remaining: Android build, Passkey auth (WebAuthn), Code signing + TestFlight.
 
 **Phase 4 — Cross-chain**
 Intent-based routing через Across Protocol. Сбор пыли.

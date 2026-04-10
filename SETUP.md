@@ -63,6 +63,7 @@ rustok/
 │   │       ├── keyring/          AES-256-GCM + Argon2id encrypted keys
 │   │       ├── provider/         Multi-chain RPC + EIP-1559 gas estimation
 │   │       ├── router/           Cheapest chain selection
+│   │       ├── explorer/         Block explorer API (Etherscan, 5 chains)
 │   │       └── explainer/        Human-readable transaction descriptions
 │   ├── cli/                # CLI binary
 │   │   └── src/main.rs          decode, analyze, wallet new/balance/info
@@ -85,10 +86,11 @@ rustok/
 | core explainer | DONE | 9 |
 | core amount | DONE | 12 |
 | core convert | DONE | 4 |
+| core explorer | DONE | 10 |
 | desktop commands | DONE | 8 |
 | CLI decode + analyze + send | DONE | - |
 | doc-tests | DONE | 2 |
-| **Итого** | | **93 тестов** |
+| **Итого** | | **103 тестов** |
 
 ### Версии
 
@@ -104,7 +106,7 @@ rustok/
 2. ~~**UI redesign**~~ — DONE. Bottom tab bar, Home page, Send/Receive/Scan actions
 3. ~~**Unlock wallet**~~ — DONE. unlock_wallet command, keystore persistence
 4. **Android build** — Tauri android init + spike
-5. **Transaction history** — Activity tab (needs tx indexer or Etherscan API)
+5. ~~**Transaction history**~~ — DONE. ExplorerClient (Etherscan API), 5 chains parallel, Activity page UI
 
 ### Потом
 6. **HTTP API** (axum) — POST /analyze, POST /send, GET /balance

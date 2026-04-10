@@ -1,8 +1,8 @@
 # Code Review — Rustok Full Codebase
-> Date: 2026-04-09 (updated)
-> Previous review: 2026-04-05
+> Date: 2026-04-10 (updated)
+> Previous review: 2026-04-09
 > Standard: Codex rust.md v1.0 + architecture.md v1.1
-> Status: Phase 3 IN PROGRESS (93 tests, 0 must-fix). Send flow + UI redesign done.
+> Status: Phase 3 IN PROGRESS (103 tests, 0 must-fix). Transaction history done.
 
 ---
 
@@ -72,6 +72,7 @@
 - Phase 3: Mobile touch targets (44pt min), iOS zoom prevention, .block/.inline-block bug fix
 - Phase 3: Biometric unlock (Face ID) — tauri-plugin-biometric, frontend-driven auth, AES-GCM password storage
 - Phase 3: Extracted unlock_with_password helper — DRY between password and biometric unlock
+- Phase 3: Transaction history — ExplorerClient (Etherscan API), 5 chains parallel, Activity page with direction/amount/chain/time
 
 ---
 
@@ -88,9 +89,9 @@
    - ~~Optimize Argon2id in dev profile~~ ✅ Done (per-package opt-level=3 for argon2+blake2, ~12ms per derive_key)
    - ~~Mobile UI tweaks~~ ✅ Done (44pt touch targets, iOS zoom prevention, missing .block/.inline-block)
    - ~~Biometric unlock~~ ✅ Done (tauri-plugin-biometric, Face ID, encrypted password storage)
+   - ~~Transaction history~~ ✅ Done (ExplorerClient, Etherscan API, 5 chains parallel, Activity page UI)
    - Android build (Tauri android init + spike)
    - Passkey auth (WebAuthn)
    - Code signing + TestFlight
 2. Добавить overflow-checks в release profile (Consider #2)
 3. Добавить custom Drop для LocalKeyring (zeroize on drop) (Consider #6)
-4. Transaction history (Activity tab — needs tx indexer or Etherscan API)

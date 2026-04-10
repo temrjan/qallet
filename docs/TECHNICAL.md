@@ -38,6 +38,7 @@ rustok/
 │   │       │   ├── mod.rs
 │   │       │   ├── planner.rs    # Route planning (single-chain MVP)
 │   │       │   └── executor.rs   # Route execution state machine
+│   │       ├── explorer.rs        # Block explorer API (Etherscan, 5 chains)
 │   │       ├── explainer/        # Объяснения на человеческом языке
 │   │       │   ├── mod.rs
 │   │       │   └── templates.rs  # Template-based (без LLM в MVP)

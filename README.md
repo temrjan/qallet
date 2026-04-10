@@ -2,7 +2,7 @@
 
 Ethereum wallet with chain abstraction and transaction security engine.
 
-**Status:** Alpha — Phase 3 in progress (Send flow + UI redesign done, iOS running in Simulator)
+**Status:** Alpha — Phase 3 in progress (Send, Biometric unlock, Transaction history done. iOS running in Simulator)
 
 ## What is this?
 
@@ -74,6 +74,7 @@ rustok/
 │   │   ├── router/       Cheapest chain selection for transactions
 │   │   ├── send/         Send orchestration (preview + execute)
 │   │   ├── amount/       ETH amount parsing (decimal → wei)
+│   │   ├── explorer/     Block explorer API (Etherscan-compatible, 5 chains)
 │   │   ├── explainer/    Human-readable transaction descriptions
 │   │   └── convert/      DTO conversions (core types → frontend types)
 │   ├── types/      # Shared DTO types (core ↔ frontend, no crypto deps)
@@ -121,7 +122,7 @@ cargo install tauri-cli --version "^2.10" --locked
 cargo tauri dev
 ```
 
-Pages: Home (auto-balance + actions), Send (3-step: input → preview → result), Receive (QR), Analyze (txguard), Activity (placeholder), Settings, Unlock.
+Pages: Home (auto-balance + actions), Send (3-step: input → preview → result), Receive (QR), Analyze (txguard), Activity (transaction history), Settings, Unlock.
 Navigation: bottom tab bar (Home / Activity / Settings). Send/Receive/Scan — fullscreen from Home action buttons.
 
 ## iOS App
@@ -150,9 +151,9 @@ Same pages as desktop, with safe area insets for iPhone notch/Dynamic Island.
 ## Tests
 
 ```
-93 tests, 0 failures
+103 tests, 0 failures
  - txguard: 38 tests (parser, rules, types, simulator inspector)
- - core: 45 tests (keyring, provider, router, explainer, convert, amount)
+ - core: 55 tests (keyring, provider, router, explainer, explorer, convert, amount)
  - desktop: 8 tests (password validation, value parsing, QR generation)
  - doc-tests: 2
 ```
