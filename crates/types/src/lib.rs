@@ -104,3 +104,41 @@ pub struct SendResponseDto {
     /// Estimated gas cost formatted.
     pub gas_cost_formatted: String,
 }
+
+/// A single transaction from block explorer history (DTO).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionDto {
+    /// Transaction hash (0x-prefixed).
+    pub tx_hash: String,
+    /// Chain ID.
+    pub chain_id: u64,
+    /// Human-readable chain name.
+    pub chain_name: String,
+    /// Sender address.
+    pub from: String,
+    /// Recipient address.
+    pub to: String,
+    /// Value formatted (e.g., "0.1 ETH").
+    pub value_formatted: String,
+    /// Unix timestamp of the block.
+    pub timestamp: u64,
+    /// Human-readable time ago (e.g., "2h ago", "3d ago").
+    pub time_ago: String,
+    /// Direction relative to the wallet: "sent", "received", or "self".
+    pub direction: String,
+    /// Transaction status: "confirmed" or "failed".
+    pub status: String,
+    /// Block number.
+    pub block_number: u64,
+    /// Full URL to transaction on block explorer.
+    pub explorer_url: String,
+}
+
+/// Transaction history response (DTO).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TransactionHistoryDto {
+    /// Transactions sorted by timestamp descending.
+    pub transactions: Vec<TransactionDto>,
+    /// Chains that failed to fetch (non-fatal).
+    pub errors: Vec<String>,
+}

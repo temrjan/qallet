@@ -287,6 +287,102 @@ input:focus {
     margin-bottom: 1rem;
 }
 
+/* ─── Activity Page ────────────────────────────────────────────── */
+
+.tx-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.tx-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #1E1E2E;
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.15s;
+    min-height: 56px;
+}
+
+.tx-item:last-child {
+    border-bottom: none;
+}
+
+.tx-direction {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.tx-direction.sent {
+    background: #F8717120;
+    color: #F87171;
+}
+
+.tx-direction.received {
+    background: #4ADE8020;
+    color: #4ADE80;
+}
+
+.tx-direction.self-tx {
+    background: #818CF820;
+    color: #818CF8;
+}
+
+.tx-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.tx-primary {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.875rem;
+}
+
+.tx-addr {
+    color: #E2E8F0;
+    font-family: ui-monospace, SFMono-Regular, 'SF Mono', monospace;
+}
+
+.tx-value {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.tx-value.sent { color: #F87171; }
+.tx-value.received { color: #4ADE80; }
+.tx-value.self-tx { color: #818CF8; }
+
+.tx-secondary {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #6B7280;
+    margin-top: 2px;
+}
+
+.tx-chain-badge {
+    font-size: 0.625rem;
+    background: #1E1E2E;
+    border-radius: 4px;
+    padding: 1px 6px;
+    color: #CBD5E1;
+}
+
+.tx-failed {
+    opacity: 0.5;
+}
+
 /* ─── Utility additions ─────────────────────────────────────────── */
 
 .text-xs { font-size: 0.75rem; }

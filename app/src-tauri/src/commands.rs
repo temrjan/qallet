@@ -3,14 +3,19 @@
 use std::sync::Mutex;
 
 use rustok_core::convert::{preview_to_dto, send_result_to_dto, verdict_to_dto};
+use rustok_core::explorer::ExplorerClient;
 use rustok_core::keyring::LocalKeyring;
 use rustok_core::provider::MultiProvider;
-use rustok_types::{AnalysisResponse, SendPreviewDto, SendResponseDto, UnifiedBalance, WalletInfo};
+use rustok_types::{
+    AnalysisResponse, SendPreviewDto, SendResponseDto, TransactionHistoryDto, UnifiedBalance,
+    WalletInfo,
+};
 use tauri::{Manager, State};
 
 /// Shared application state across all commands.
 pub struct AppState {
     pub provider: MultiProvider,
+    pub explorer: ExplorerClient,
     /// NOTE: std::sync::Mutex — lock must never be held across .await points.
     /// Acceptable for desktop app with low concurrency. Switch to tokio::sync::Mutex
     /// if adding .await inside locked sections.
@@ -349,6 +354,28 @@ pub async fn send_eth(
     .map_err(|e| e.to_string())?;
 
     Ok(send_result_to_dto(result))
+}
+
+// ─── Transaction history ──────────────────────────────────────────
+
+#[tauri::command]
+pub async fn get_transaction_history(
+    state: State<'_, AppState>,
+) -> Result<TransactionHistoryDto, String> {
+    let addr = {
+        let lock = state
+            .wallet
+            .lock()
+            .map_err(|e| format!("state lock: {e}"))?;
+        let w = lock.as_ref().ok_or("wallet not unlocked")?;
+        w.keyring.address()
+    };
+    // Lock dropped — safe to .await.
+    let history = state
+        .explorer
+        .fetch_history(addr, state.provider.chains(), 20)
+        .await;
+    Ok(history)
 }
 
 // ─── Biometric unlock ─────────────────────────────────────────────

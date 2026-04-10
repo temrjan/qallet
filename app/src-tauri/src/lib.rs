@@ -1,6 +1,7 @@
 mod commands;
 
 use commands::AppState;
+use rustok_core::explorer::ExplorerClient;
 use rustok_core::provider::MultiProvider;
 use std::sync::Mutex;
 
@@ -12,6 +13,7 @@ pub fn run() {
     builder
         .manage(AppState {
             provider: MultiProvider::mainnets_only(),
+            explorer: ExplorerClient::new(),
             wallet: Mutex::new(None),
         })
         .invoke_handler(tauri::generate_handler![
@@ -30,6 +32,7 @@ pub fn run() {
             commands::enable_biometric_unlock,
             commands::disable_biometric_unlock,
             commands::biometric_unlock_wallet,
+            commands::get_transaction_history,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
