@@ -41,6 +41,15 @@ impl std::fmt::Debug for LocalKeyring {
     }
 }
 
+impl Drop for LocalKeyring {
+    fn drop(&mut self) {
+        use zeroize::Zeroize;
+        // Zeroize encrypted blob (salt + nonce + ciphertext).
+        // signer's private key is already zeroized by k256::SecretKey's Drop.
+        self.encrypted.zeroize();
+    }
+}
+
 impl LocalKeyring {
     /// Generate a new random private key, encrypted with the given password.
     pub fn generate(password: &str) -> Result<Self, KeyringError> {
