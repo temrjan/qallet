@@ -36,17 +36,18 @@ struct EtherscanResponse {
     result: serde_json::Value,
 }
 
-/// Map chain ID to Etherscan-compatible API base URL.
+/// Map chain ID to Blockscout-compatible API base URL.
 ///
-/// Returns `None` for chains without Etherscan-compatible API (e.g., zkSync).
+/// Blockscout provides free, API-key-free access with the same response format
+/// as Etherscan. Returns `None` for chains without a public Blockscout instance.
 #[must_use]
 const fn api_url(chain_id: u64) -> Option<&'static str> {
     match chain_id {
-        1 => Some("https://api.etherscan.io/api"),
-        42161 => Some("https://api.arbiscan.io/api"),
-        8453 => Some("https://api.basescan.org/api"),
-        10 => Some("https://api-optimistic.etherscan.io/api"),
-        11155111 => Some("https://api-sepolia.etherscan.io/api"),
+        1 => Some("https://eth.blockscout.com/api"),
+        42161 => Some("https://arbitrum.blockscout.com/api"),
+        8453 => Some("https://base.blockscout.com/api"),
+        10 => Some("https://optimism.blockscout.com/api"),
+        11155111 => Some("https://eth-sepolia.blockscout.com/api"),
         _ => None,
     }
 }
