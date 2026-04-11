@@ -12,7 +12,11 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_biometric::init());
     builder
         .manage(AppState {
-            provider: MultiProvider::mainnets_only(),
+            provider: if cfg!(debug_assertions) {
+                MultiProvider::default_chains()
+            } else {
+                MultiProvider::mainnets_only()
+            },
             explorer: ExplorerClient::new(),
             wallet: Mutex::new(None),
         })
