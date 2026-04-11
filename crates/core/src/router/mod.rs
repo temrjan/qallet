@@ -75,6 +75,9 @@ pub async fn find_routes(
     let balance_map = provider.balance_map(from).await;
 
     let mut routes = Vec::new();
+    // Track minimum total needed (value + gas) across checked chains
+    // so the error message reports an accurate amount.
+    let mut min_total_needed = None::<U256>;
 
     for chain in provider.chains() {
         let balance = match balance_map.get(&chain.id) {
@@ -110,6 +113,10 @@ pub async fn find_routes(
         // Check if balance covers value + gas cost
         let total_needed = value.saturating_add(estimated_cost);
         if balance < total_needed {
+            min_total_needed = Some(match min_total_needed {
+                Some(prev) => prev.min(total_needed),
+                None => total_needed,
+            });
             continue;
         }
 
@@ -125,7 +132,9 @@ pub async fn find_routes(
     }
 
     if routes.is_empty() {
-        return Err(RouterError::InsufficientBalance { needed: value });
+        return Err(RouterError::InsufficientBalance {
+            needed: min_total_needed.unwrap_or(value),
+        });
     }
 
     // Sort by estimated cost (cheapest first)
