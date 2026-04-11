@@ -87,7 +87,11 @@ pub fn default_chains() -> Vec<Chain> {
         Chain {
             id: 11155111,
             name: "Sepolia".into(),
-            rpc_urls: vec!["https://rpc.sepolia.org".into()],
+            rpc_urls: vec![
+                "https://ethereum-sepolia-rpc.publicnode.com".into(),
+                "https://rpc.sepolia.org".into(),
+                "https://sepolia.drpc.org".into(),
+            ],
             explorer_url: "https://sepolia.etherscan.io".into(),
             native_symbol: "ETH".into(),
             native_decimals: 18,
