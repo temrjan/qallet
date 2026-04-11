@@ -3,7 +3,7 @@ use leptos::task::spawn_local;
 use rustok_types::WalletInfo;
 use serde::{Deserialize, Serialize};
 
-use crate::bridge::tauri_invoke;
+use crate::bridge::{navigate_to, tauri_invoke};
 
 #[derive(Serialize)]
 struct UnlockArgs {
@@ -74,10 +74,7 @@ pub fn UnlockPage() -> impl IntoView {
 
             // 2. Unlock with stored password.
             match tauri_invoke::<_, WalletInfo>("biometric_unlock_wallet", &EmptyArgs {}).await {
-                Ok(_) => {
-                    let nav = leptos_router::hooks::use_navigate();
-                    nav("/", Default::default());
-                }
+                Ok(_) => navigate_to("/"),
                 Err(e) => set_error.set(Some(e)),
             }
             set_loading.set(false);
@@ -106,8 +103,7 @@ pub fn UnlockPage() -> impl IntoView {
                         set_show_bio_prompt.set(true);
                         set_loading.set(false);
                     } else {
-                        let nav = leptos_router::hooks::use_navigate();
-                        nav("/", Default::default());
+                        navigate_to("/");
                     }
                 }
                 Err(e) => set_error.set(Some(e)),
@@ -143,10 +139,7 @@ pub fn UnlockPage() -> impl IntoView {
             )
             .await
             {
-                Ok(()) => {
-                    let nav = leptos_router::hooks::use_navigate();
-                    nav("/", Default::default());
-                }
+                Ok(()) => navigate_to("/"),
                 Err(e) => set_error.set(Some(e)),
             }
             set_loading.set(false);
@@ -154,8 +147,7 @@ pub fn UnlockPage() -> impl IntoView {
     };
 
     let skip_bio = move |_| {
-        let nav = leptos_router::hooks::use_navigate();
-        nav("/", Default::default());
+        navigate_to("/");
     };
 
     view! {
