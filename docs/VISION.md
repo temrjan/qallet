@@ -136,8 +136,9 @@ Open Core:
 | Без seed-фраз | Нет | Нет | Да | **Да** |
 | Rust | Нет | Нет | Нет | **Да** |
 | Нативное мобильное | Нет | Нет | Да | **Да (Tauri)** |
+| Verified microkernel | Нет | Нет | Нет | **Phase 6 (seL4)** |
 
-**Ниша свободна:** нет open-source Rust Ethereum wallet с chain abstraction и нативным мобильным приложением.
+**Ниша свободна:** нет open-source Rust Ethereum wallet с chain abstraction, нативным мобильным приложением и формально верифицированным runtime.
 
 ---
 
@@ -159,9 +160,23 @@ Intent-based routing через Across Protocol. Сбор пыли.
 AI роутинг — оптимальный маршрут из всех вариантов.
 
 **Phase 5 — AI + Polish**
-NLP команды, AI-объяснения транзакций, полноценный ассистент.
+NLP команды, AI-объяснения транзакций, полно��енный ассистент.
 
-Каждая фаза — production quality. Не MVP, не демо. Фундамент.
+**Phase 6 — Hardened Runtime (seL4 + Rust OS)**
+Минимальная ОС на базе формально верифицированного микроядра seL4, написанная на Rust.
+Кошелёк запускается в изолированном окружении без стандартной ОС — минимальная attack surface.
+Цель: первый в мире software wallet на формально верифицированном микроядре.
+
+Контекст:
+- Ledger создал BOLOS — кастомную ОС для hardware wallets. Но это firmware для микроконтроллеров.
+- Software wallet на seL4 — не существует. Ниша свободна.
+- seL4 математически доказывает отсутствие целого класса уязвимостей (buffer overflow, privilege escalation).
+- Rust гарантирует memory safety в userspace. seL4 гарантирует изоляцию на уровне ядра.
+- Вместе: dual-layer safety — ни один кошелёк в мире этого не предлагает.
+
+Scope: отдельная команда, 6-12 месяцев. Требует: кастомный userspace, network stack (lwIP/smoltcp), TLS (rustls), minimal filesystem.
+
+Каждая фаза — production quality. ��е MVP, не демо. Фундамент.
 
 ---
 
