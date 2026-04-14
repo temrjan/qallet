@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 use rustok_types::WalletInfo;
 use serde::{Deserialize, Serialize};
+use web_sys::wasm_bindgen::JsCast;
 
 use crate::bridge::{navigate_to, tauri_invoke};
 
@@ -81,20 +82,31 @@ pub fn UnlockPage() -> impl IntoView {
         });
     };
 
-    // Password unlock.
+    let password_ref = NodeRef::<leptos::html::Input>::new();
+
+    // Password unlock — read value directly from DOM for Android WebView compatibility.
     let unlock = move |_| {
-        let pwd = password.get();
+        let pwd = password_ref
+            .get()
+            .map(|el| {
+                el.clone()
+                    .dyn_into::<web_sys::HtmlInputElement>()
+                    .ok()
+                    .map(|input| input.value())
+                    .unwrap_or_default()
+            })
+            .unwrap_or_default();
         if pwd.is_empty() {
             set_error.set(Some("Enter your password".into()));
             return;
         }
 
+        set_password.set(pwd.clone());
         set_loading.set(true);
         set_error.set(None);
 
-        let pwd_clone = pwd.clone();
         spawn_local(async move {
-            match tauri_invoke::<_, WalletInfo>("unlock_wallet", &UnlockArgs { password: pwd_clone })
+            match tauri_invoke::<_, WalletInfo>("unlock_wallet", &UnlockArgs { password: pwd })
                 .await
             {
                 Ok(_) => {
@@ -198,7 +210,7 @@ pub fn UnlockPage() -> impl IntoView {
                             type="password"
                             class="border border-gray-600 rounded-xl p-2 w-full bg-gray-800"
                             placeholder="Password"
-                            on:input:target=move |ev| set_password.set(ev.target().value())
+                            node_ref=password_ref
                         />
                         <button
                             class="mt-2 bg-indigo-600 px-4 py-3 rounded-xl w-full hover:bg-indigo-700"

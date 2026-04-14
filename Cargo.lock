@@ -5559,6 +5559,7 @@ dependencies = [
  "alloy-primitives",
  "qrcode",
  "rand 0.8.5",
+ "rustls-platform-verifier",
  "rustok-core",
  "rustok-types",
  "serde",
