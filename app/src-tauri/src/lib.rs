@@ -11,11 +11,11 @@ pub fn run() {
     #[cfg(mobile)]
     let builder = builder.plugin(tauri_plugin_biometric::init());
     builder
-        .setup(|app| {
+        .setup(|_app| {
             #[cfg(target_os = "android")]
             {
                 use tauri::Manager;
-                app.get_webview_window("main")
+                _app.get_webview_window("main")
                     .expect("main window")
                     .with_webview(|webview| {
                         webview.jni_handle().exec(|env, context, _webview| {
