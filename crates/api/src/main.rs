@@ -8,8 +8,8 @@ mod handlers;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::routing::{get, post};
 use axum::Router;
+use axum::routing::{get, post};
 use tower_http::cors::{AllowOrigin, CorsLayer};
 use tower_http::trace::TraceLayer;
 use txguard::enrichment::GoPlusClient;

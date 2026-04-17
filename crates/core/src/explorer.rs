@@ -138,7 +138,7 @@ impl ExplorerClient {
         }
 
         // Sort by timestamp descending (most recent first).
-        all_txs.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        all_txs.sort_by_key(|tx| std::cmp::Reverse(tx.timestamp));
 
         // Limit total results.
         all_txs.truncate(limit as usize);

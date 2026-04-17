@@ -1,10 +1,10 @@
 //! HTTP handlers for txguard API endpoints.
 
 use alloy_primitives::{Address, Bytes, U256};
+use axum::Json;
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde::{Deserialize, Serialize};
 
 use crate::AppState;
@@ -34,7 +34,14 @@ impl IntoResponse for ApiError {
             Self::Upstream(msg) => (StatusCode::BAD_GATEWAY, "upstream_error", msg),
         };
 
-        (status, Json(Body { error: kind, message })).into_response()
+        (
+            status,
+            Json(Body {
+                error: kind,
+                message,
+            }),
+        )
+            .into_response()
     }
 }
 
@@ -91,7 +98,11 @@ pub(crate) async fn check_address(
         .await
         .map_err(|e| ApiError::Upstream(format!("GoPlus error: {e}")))?;
 
-    let risk_level = if result.is_malicious { "danger" } else { "safe" };
+    let risk_level = if result.is_malicious {
+        "danger"
+    } else {
+        "safe"
+    };
 
     Ok(Json(CheckAddressResponse {
         is_malicious: result.is_malicious,
