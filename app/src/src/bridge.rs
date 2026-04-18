@@ -33,7 +33,7 @@ where
 
     let result = invoke(cmd, args_js)
         .await
-        .map_err(|e| format!("invoke error: {e:?}"))?;
+        .map_err(|e| e.as_string().unwrap_or_else(|| format!("{e:?}")))?;
 
     serde_wasm_bindgen::from_value(result).map_err(|e| format!("deserialize result: {e}"))
 }
