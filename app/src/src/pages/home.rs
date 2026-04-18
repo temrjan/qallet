@@ -3,9 +3,32 @@ use leptos::task::spawn_local;
 use leptos_router::hooks::use_navigate;
 use rustok_types::UnifiedBalance;
 use serde::Serialize;
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsCast;
 
 use crate::app::WalletState;
 use crate::bridge::tauri_invoke;
+
+/// Interval between automatic balance refreshes while the tab is visible.
+const AUTO_REFRESH_MS: u32 = 30_000;
+
+/// Fetch balance silently (no loading spinner, no retry, no error surfacing).
+/// Used by polling and visibility-change handlers.
+fn silent_refresh(set_balance: WriteSignal<Option<UnifiedBalance>>) {
+    spawn_local(async move {
+        if let Ok(b) = tauri_invoke::<_, UnifiedBalance>("get_wallet_balance", &EmptyArgs {}).await
+        {
+            set_balance.set(Some(b));
+        }
+    });
+}
+
+fn document_hidden() -> bool {
+    web_sys::window()
+        .and_then(|w| w.document())
+        .map(|d| d.hidden())
+        .unwrap_or(false)
+}
 
 #[derive(Serialize)]
 struct EmptyArgs {}
@@ -29,6 +52,31 @@ pub fn HomePage() -> impl IntoView {
         WalletState::Locked => nav_guard("/unlock", Default::default()),
         WalletState::Loading | WalletState::Unlocked => {}
     });
+
+    // Auto-refresh: polling every AUTO_REFRESH_MS when tab visible and wallet unlocked.
+    // Skips when document.hidden() to avoid wasting RPC quota on background tabs.
+    // forget() leaks the handle for the session — HomePage only unmounts on logout.
+    gloo_timers::callback::Interval::new(AUTO_REFRESH_MS, move || {
+        if state.get_untracked() != WalletState::Unlocked || document_hidden() {
+            return;
+        }
+        silent_refresh(set_balance);
+    })
+    .forget();
+
+    // Refetch immediately when app returns from background (visibilitychange event).
+    let closure = Closure::wrap(Box::new(move || {
+        if state.get_untracked() != WalletState::Unlocked || document_hidden() {
+            return;
+        }
+        silent_refresh(set_balance);
+    }) as Box<dyn FnMut()>);
+    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+        let _ = doc
+            .add_event_listener_with_callback("visibilitychange", closure.as_ref().unchecked_ref());
+    }
+    // Leak closure — HomePage lives for the session (only unmounts on logout/lock).
+    closure.forget();
 
     // Balance fetch: runs when wallet becomes Unlocked.
     // Android TLS init can race the first RPC call — one retry after 800ms.

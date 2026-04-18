@@ -31,16 +31,17 @@ pub fn SettingsPage() -> impl IntoView {
         {
             set_bio_available.set(status.is_available);
         }
-        if let Ok(enabled) =
-            tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await
-        {
+        if let Ok(enabled) = tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await {
             set_bio_enabled.set(enabled);
         }
     });
 
     let disable_bio = move |_| {
         spawn_local(async move {
-            if tauri_invoke::<_, ()>("disable_biometric_unlock", &EmptyArgs {}).await.is_ok() {
+            if tauri_invoke::<_, ()>("disable_biometric_unlock", &EmptyArgs {})
+                .await
+                .is_ok()
+            {
                 set_bio_enabled.set(false);
             }
         });

@@ -52,9 +52,7 @@ pub fn UnlockPage() -> impl IntoView {
             set_bio_available.set(status.is_available);
         }
         // Check if biometric.dat exists.
-        if let Ok(enabled) =
-            tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await
-        {
+        if let Ok(enabled) = tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await {
             set_bio_enabled.set(enabled);
         }
     });

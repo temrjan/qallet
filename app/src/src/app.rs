@@ -41,13 +41,11 @@ pub fn App() -> impl IntoView {
     spawn_local(async move {
         match tauri_invoke::<_, bool>("has_wallet", &EmptyArgs {}).await {
             Ok(false) => state.set(WalletState::Uninit),
-            Ok(true) => {
-                match tauri_invoke::<_, bool>("is_wallet_unlocked", &EmptyArgs {}).await {
-                    Ok(true) => state.set(WalletState::Unlocked),
-                    Ok(false) => state.set(WalletState::Locked),
-                    Err(_) => {}
-                }
-            }
+            Ok(true) => match tauri_invoke::<_, bool>("is_wallet_unlocked", &EmptyArgs {}).await {
+                Ok(true) => state.set(WalletState::Unlocked),
+                Ok(false) => state.set(WalletState::Locked),
+                Err(_) => {}
+            },
             Err(_) => {}
         }
     });
