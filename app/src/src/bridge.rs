@@ -11,12 +11,30 @@ extern "C" {
 
 /// Copy text to the system clipboard.
 ///
-/// Uses `document.execCommand('copy')` via a temporary textarea — works in
-/// iOS WKWebView where `navigator.clipboard` is unavailable.
+/// Prefer the async Clipboard API (`navigator.clipboard.writeText`) — works
+/// reliably on modern iOS WKWebView and Android WebView. Falls back to
+/// `document.execCommand('copy')` via a hidden textarea for older runtimes.
 pub fn copy_to_clipboard(text: &str) -> bool {
+    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
     let code = format!(
-        r#"(function(){{var e=document.createElement('textarea');e.value="{}";e.setAttribute('readonly','');e.style.position='absolute';e.style.left='-9999px';document.body.appendChild(e);e.select();var r=document.execCommand('copy');document.body.removeChild(e);return r;}})()"#,
-        text.replace('\\', "\\\\").replace('"', "\\\"")
+        r#"(function(){{
+            try {{
+                if (navigator.clipboard && navigator.clipboard.writeText) {{
+                    navigator.clipboard.writeText("{escaped}");
+                    return true;
+                }}
+            }} catch (_) {{}}
+            var e = document.createElement('textarea');
+            e.value = "{escaped}";
+            e.setAttribute('readonly', '');
+            e.style.position = 'absolute';
+            e.style.left = '-9999px';
+            document.body.appendChild(e);
+            e.select();
+            var r = document.execCommand('copy');
+            document.body.removeChild(e);
+            return r;
+        }})()"#
     );
     js_sys::eval(&code)
         .map(|v| v.as_bool().unwrap_or(false))
