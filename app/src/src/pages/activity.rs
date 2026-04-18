@@ -132,7 +132,7 @@ pub fn ActivityPage() -> impl IntoView {
                                                         <div class="tx-secondary">
                                                             <span>
                                                                 <span class="tx-chain-badge">{tx.chain_name}</span>
-                                                                {(tx.status == "failed").then(|| " Failed")}
+                                                                {(tx.status == "failed").then_some(" Failed")}
                                                             </span>
                                                             <span>{tx.time_ago}</span>
                                                         </div>
