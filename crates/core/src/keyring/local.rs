@@ -428,9 +428,8 @@ mod tests {
             "\tABANDON\tabandon\tAbAnDoN\tabandon\tabandon\tabandon\tabandon\tabandon\tabandon\tabandon\tabandon\tabout",
         ];
         for input in inputs {
-            let k = LocalKeyring::from_mnemonic(input, PASSWORD).unwrap_or_else(|e| {
-                panic!("from_mnemonic rejected messy input {input:?}: {e}")
-            });
+            let k = LocalKeyring::from_mnemonic(input, PASSWORD)
+                .unwrap_or_else(|e| panic!("from_mnemonic rejected messy input {input:?}: {e}"));
             assert_eq!(k.address(), expected);
         }
     }
