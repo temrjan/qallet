@@ -55,6 +55,7 @@ pub fn run() {
             commands::analyze_transaction,
             commands::create_wallet,
             commands::create_wallet_with_mnemonic,
+            commands::generate_mnemonic_phrase,
             commands::import_wallet_from_mnemonic,
             commands::get_current_address,
             commands::get_wallet_qr_svg,

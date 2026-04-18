@@ -476,3 +476,63 @@ input:focus {
 .list-none { list-style: none; padding: 0; margin: 0; }
 .block { display: block; min-height: 44px; line-height: 44px; }
 .inline-block { display: inline-block; }
+
+/* Create Wallet wizard */
+.wallet-create {
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 1.5rem 1rem 2rem;
+}
+
+.ack-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    background: #1A1A1A;
+    border: 1px solid #2A2A2A;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    color: #D0D0D0;
+    font-size: 0.875rem;
+    line-height: 1.4;
+    cursor: pointer;
+}
+
+.ack-row input[type="checkbox"] {
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+    width: 18px;
+    height: 18px;
+    accent-color: #f59e0b;
+}
+
+.mnemonic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+    margin: 1rem 0;
+}
+
+.mnemonic-word {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #1A1A1A;
+    border: 1px solid #2A2A2A;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    font-size: 0.9rem;
+}
+
+.mnemonic-index {
+    color: #8A8A8A;
+    font-size: 0.75rem;
+    min-width: 1.25rem;
+}
+
+.mnemonic-text {
+    color: #f59e0b;
+    font-weight: 600;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}

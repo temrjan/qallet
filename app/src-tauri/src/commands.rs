@@ -178,6 +178,20 @@ pub async fn create_wallet(
     persist_keyring(keyring, &app_handle, &state)
 }
 
+/// Generate a random BIP39 recovery phrase without creating a wallet.
+///
+/// Used by the create-wallet wizard so the UI can show the phrase, run a
+/// confirmation step, and only then collect a password and persist the
+/// wallet via [`import_wallet_from_mnemonic`]. The phrase is transmitted
+/// as plain String over the Tauri bridge — it cannot be zeroed on the JS
+/// side, which is the standard trade-off for software wallets.
+#[tauri::command]
+pub async fn generate_mnemonic_phrase() -> Result<String, String> {
+    let phrase = LocalKeyring::random_mnemonic_phrase()
+        .map_err(|e| format!("failed to generate mnemonic: {e}"))?;
+    Ok(phrase.to_string())
+}
+
 /// Create a new wallet and return the recovery phrase alongside the address.
 ///
 /// The phrase is shown to the user exactly once — it is never stored
