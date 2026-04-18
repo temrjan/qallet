@@ -65,6 +65,19 @@ pub struct WalletInfo {
     pub address: String,
 }
 
+/// Wallet info returned from mnemonic-based creation (DTO).
+///
+/// Includes the recovery phrase that must be shown to the user exactly once
+/// so they can back it up. The phrase is never persisted server-side — once
+/// this response is dropped it only exists on paper the user wrote it on.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalletInfoWithMnemonic {
+    /// Ethereum address (0x-prefixed, checksummed).
+    pub address: String,
+    /// BIP39 recovery phrase (12 words, English wordlist).
+    pub mnemonic: String,
+}
+
 /// Preview of a send operation (DTO).
 ///
 /// Returned by `preview_send` for user confirmation before broadcasting.

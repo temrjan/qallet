@@ -8,7 +8,7 @@ use rustok_core::keyring::LocalKeyring;
 use rustok_core::provider::MultiProvider;
 use rustok_types::{
     AnalysisResponse, SendPreviewDto, SendResponseDto, TransactionHistoryDto, UnifiedBalance,
-    WalletInfo,
+    WalletInfo, WalletInfoWithMnemonic,
 };
 use tauri::{Manager, State};
 
@@ -174,6 +174,49 @@ pub async fn create_wallet(
 
     let keyring =
         LocalKeyring::generate(&password).map_err(|e| format!("failed to create wallet: {e}"))?;
+
+    persist_keyring(keyring, &app_handle, &state)
+}
+
+/// Create a new wallet and return the recovery phrase alongside the address.
+///
+/// The phrase is shown to the user exactly once — it is never stored
+/// server-side, so the user must write it down to recover the wallet on
+/// another device or after a password change.
+#[tauri::command]
+pub async fn create_wallet_with_mnemonic(
+    password: String,
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<WalletInfoWithMnemonic, String> {
+    validate_password(&password)?;
+
+    let phrase = LocalKeyring::random_mnemonic_phrase()
+        .map_err(|e| format!("failed to generate mnemonic: {e}"))?;
+
+    let keyring = LocalKeyring::from_mnemonic(&phrase, &password)
+        .map_err(|e| format!("failed to derive wallet from mnemonic: {e}"))?;
+
+    let info = persist_keyring(keyring, &app_handle, &state)?;
+
+    Ok(WalletInfoWithMnemonic {
+        address: info.address,
+        mnemonic: phrase.to_string(),
+    })
+}
+
+/// Restore a wallet from a BIP39 recovery phrase.
+#[tauri::command]
+pub async fn import_wallet_from_mnemonic(
+    phrase: String,
+    password: String,
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<WalletInfo, String> {
+    validate_password(&password)?;
+
+    let keyring = LocalKeyring::from_mnemonic(&phrase, &password)
+        .map_err(|e| format!("failed to import wallet: {e}"))?;
 
     persist_keyring(keyring, &app_handle, &state)
 }
