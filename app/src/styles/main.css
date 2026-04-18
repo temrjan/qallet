@@ -537,7 +537,7 @@ input:focus {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-.restore-textarea {
+.restore-input {
     width: 100%;
     background: #1A1A1A;
     border: 1px solid #2A2A2A;
@@ -547,11 +547,9 @@ input:focus {
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 0.95rem;
     line-height: 1.5;
-    resize: vertical;
-    min-height: 100px;
 }
 
-.restore-textarea:focus {
+.restore-input:focus {
     outline: none;
     border-color: #f59e0b;
 }

@@ -90,20 +90,16 @@ pub fn RestorePage() -> impl IntoView {
                 <p class="text-red-400 mt-2 text-center">{e}</p>
             })}
 
-            <textarea
-                class="restore-textarea"
+            // Android WebView does not open the soft keyboard for textarea —
+            // single-line input works reliably on both platforms. The phrase
+            // can still be pasted or typed in one long line.
+            <input
+                type="text"
+                class="restore-input"
                 placeholder="abandon abandon abandon ..."
-                rows="4"
                 autocapitalize="none"
                 spellcheck="false"
-                on:input=move |ev| {
-                    use web_sys::wasm_bindgen::JsCast;
-                    if let Some(ta) = ev.target()
-                        .and_then(|t| t.dyn_into::<web_sys::HtmlTextAreaElement>().ok())
-                    {
-                        set_phrase.set(ta.value());
-                    }
-                }
+                on:input:target=move |ev| set_phrase.set(ev.target().value())
             />
 
             <input
