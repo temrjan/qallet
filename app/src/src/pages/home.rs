@@ -1,8 +1,10 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use leptos_router::hooks::use_navigate;
 use rustok_types::UnifiedBalance;
 use serde::Serialize;
 
+use crate::app::WalletState;
 use crate::bridge::tauri_invoke;
 
 #[derive(Serialize)]
@@ -10,165 +12,155 @@ struct EmptyArgs {}
 
 #[component]
 pub fn HomePage() -> impl IntoView {
+    let state = use_context::<RwSignal<WalletState>>()
+        .expect("WalletState context missing — must be provided in App");
+    let navigate = use_navigate();
+
     let (balance, set_balance) = signal(None::<UnifiedBalance>);
     let (address, set_address) = signal(None::<String>);
-    let (unlocked, set_unlocked) = signal(None::<bool>);
     let (error, set_error) = signal(None::<String>);
-    let (loading, set_loading) = signal(true);
+    let (loading, set_loading) = signal(false);
 
-    // On mount: check wallet state and load balance.
-    spawn_local(async move {
-        // Check if wallet is unlocked.
-        match tauri_invoke::<_, bool>("is_wallet_unlocked", &EmptyArgs {}).await {
-            Ok(true) => {
-                set_unlocked.set(Some(true));
+    // Guard: redirect to the appropriate page when the wallet is not unlocked.
+    // Runs whenever `state` changes.
+    let nav_guard = navigate.clone();
+    Effect::new(move |_| match state.get() {
+        WalletState::Uninit => nav_guard("/wallet/create", Default::default()),
+        WalletState::Locked => nav_guard("/unlock", Default::default()),
+        WalletState::Loading | WalletState::Unlocked => {}
+    });
 
-                // Fetch address.
-                if let Ok(Some(addr)) =
-                    tauri_invoke::<_, Option<String>>("get_current_address", &EmptyArgs {}).await
-                {
-                    set_address.set(Some(addr));
-                }
-
-                // Fetch balance (with auto-retry for Android TLS init race).
-                match tauri_invoke::<_, UnifiedBalance>("get_wallet_balance", &EmptyArgs {}).await {
-                    Ok(b) if b.chains.is_empty() && !b.errors.is_empty() => {
-                        // All chains failed — likely rustls not ready yet on Android.
-                        // Retry once after 800ms delay.
-                        gloo_timers::callback::Timeout::new(800, move || {
-                            spawn_local(async move {
-                                match tauri_invoke::<_, UnifiedBalance>(
-                                    "get_wallet_balance",
-                                    &EmptyArgs {},
-                                )
-                                .await
-                                {
-                                    Ok(b2) => set_balance.set(Some(b2)),
-                                    Err(e) => set_error.set(Some(e)),
-                                }
-                                set_loading.set(false);
-                            });
-                        })
-                        .forget();
-                        return;
-                    }
-                    Ok(b) => set_balance.set(Some(b)),
-                    Err(e) => set_error.set(Some(e)),
-                }
-            }
-            Ok(false) => {
-                set_unlocked.set(Some(false));
-            }
-            Err(e) => set_error.set(Some(e)),
+    // Balance fetch: runs when wallet becomes Unlocked.
+    // Android TLS init can race the first RPC call — one retry after 800ms.
+    Effect::new(move |_| {
+        if state.get() != WalletState::Unlocked {
+            return;
         }
-        set_loading.set(false);
+        set_loading.set(true);
+        set_error.set(None);
+
+        spawn_local(async move {
+            if let Ok(Some(addr)) =
+                tauri_invoke::<_, Option<String>>("get_current_address", &EmptyArgs {}).await
+            {
+                set_address.set(Some(addr));
+            }
+
+            match tauri_invoke::<_, UnifiedBalance>("get_wallet_balance", &EmptyArgs {}).await {
+                Ok(b) if b.chains.is_empty() && !b.errors.is_empty() => {
+                    gloo_timers::callback::Timeout::new(800, move || {
+                        spawn_local(async move {
+                            match tauri_invoke::<_, UnifiedBalance>(
+                                "get_wallet_balance",
+                                &EmptyArgs {},
+                            )
+                            .await
+                            {
+                                Ok(b2) => set_balance.set(Some(b2)),
+                                Err(e) => set_error.set(Some(e)),
+                            }
+                            set_loading.set(false);
+                        });
+                    })
+                    .forget();
+                    return;
+                }
+                Ok(b) => set_balance.set(Some(b)),
+                Err(e) => set_error.set(Some(e)),
+            }
+            set_loading.set(false);
+        });
     });
 
     view! {
         <div>
-            {move || {
-                if loading.get() {
-                    return view! { <p class="text-gray-400">"Loading..."</p> }.into_any();
+            {move || match state.get() {
+                WalletState::Loading => {
+                    view! { <p class="text-gray-400">"Loading..."</p> }.into_any()
                 }
+                WalletState::Uninit | WalletState::Locked => {
+                    view! { <p class="text-gray-400">"Redirecting..."</p> }.into_any()
+                }
+                WalletState::Unlocked => {
+                    let addr = address.get();
+                    let bal = balance.get();
+                    let err = error.get();
+                    let is_loading = loading.get();
 
-                match unlocked.get() {
-                    Some(false) | None => {
-                        // Not unlocked — show logo + unlock prompt.
-                        view! {
-                            <div class="unlock-hero">
-                                <img src="/logo.png" alt="Rustok" class="unlock-logo" />
-                                <div class="unlock-title">"Rustok"</div>
-                                <div class="unlock-subtitle">"Ethereum Wallet"</div>
-                                <div class="unlock-form">
-                                    <a href="/unlock" class="bg-indigo-600 px-4 py-3 rounded-xl w-full hover:bg-indigo-700" style="display:block;text-align:center;">"Unlock Wallet"</a>
-                                    <p class="text-gray-400 text-sm mt-4 text-center">
-                                        "No wallet? "
-                                        <a href="/wallet/create" class="text-blue-400">"Create one"</a>
-                                    </p>
-                                </div>
-                            </div>
-                        }.into_any()
-                    }
-                    Some(true) => {
-                        // Unlocked — show balance + actions.
-                        let addr = address.get();
-                        let bal = balance.get();
-                        let err = error.get();
-
-                        view! {
-                            <div>
-                                // Address
-                                {addr.map(|a| {
-                                    let short = if a.len() > 14 {
-                                        format!("{}...{}", &a[..6], &a[a.len() - 4..])
-                                    } else {
-                                        a
-                                    };
-                                    view! {
-                                        <div class="home-address">
-                                            <span>{short}</span>
-                                        </div>
-                                    }
-                                })}
-
-                                // Balance
-                                {bal.map(|b| view! {
-                                    <div>
-                                        <p class="home-balance">{b.approximate_total_formatted}</p>
-                                        <ul class="chain-list list-none">
-                                            {b.chains.into_iter().map(|c| view! {
-                                                <li>{c.chain_name} ": " {c.formatted} " ETH"</li>
-                                            }).collect_view()}
-                                        </ul>
-                                        {(!b.errors.is_empty()).then(|| view! {
-                                            <p class="text-yellow-400 text-sm text-center">
-                                                {format!("{} chain(s) failed", b.errors.len())}
-                                            </p>
-                                            <button
-                                                class="text-blue-400 text-sm text-center w-full mt-1"
-                                                on:click=move |_| {
-                                                    set_balance.set(None);
-                                                    set_error.set(None);
-                                                    set_loading.set(true);
-                                                    spawn_local(async move {
-                                                        match tauri_invoke::<_, UnifiedBalance>(
-                                                            "get_wallet_balance",
-                                                            &EmptyArgs {},
-                                                        ).await {
-                                                            Ok(b) => set_balance.set(Some(b)),
-                                                            Err(e) => set_error.set(Some(e)),
-                                                        }
-                                                        set_loading.set(false);
-                                                    });
-                                                }
-                                            >
-                                                "Refresh"
-                                            </button>
-                                        })}
+                    view! {
+                        <div>
+                            {addr.map(|a| {
+                                let short = if a.len() > 14 {
+                                    format!("{}...{}", &a[..6], &a[a.len() - 4..])
+                                } else {
+                                    a
+                                };
+                                view! {
+                                    <div class="home-address">
+                                        <span>{short}</span>
                                     </div>
-                                })}
+                                }
+                            })}
 
-                                // Error
-                                {err.map(|e| view! { <p class="text-red-400 text-center">{e}</p> })}
+                            {is_loading.then(|| view! {
+                                <p class="text-gray-400">"Loading balance..."</p>
+                            })}
 
-                                // Action buttons — <a> links for reliable navigation
-                                <div class="action-row">
-                                    <a href="/send" class="action-btn">
-                                        <span class="icon">"↑"</span>
-                                        <span>"Send"</span>
-                                    </a>
-                                    <a href="/receive" class="action-btn">
-                                        <span class="icon">"↓"</span>
-                                        <span>"Receive"</span>
-                                    </a>
-                                    <a href="/scan" class="action-btn">
-                                        <span class="icon">"⛨"</span>
-                                        <span>"Scan"</span>
-                                    </a>
+                            {bal.map(|b| view! {
+                                <div>
+                                    <p class="home-balance">{b.approximate_total_formatted}</p>
+                                    <ul class="chain-list list-none">
+                                        {b.chains.into_iter().map(|c| view! {
+                                            <li>{c.chain_name} ": " {c.formatted} " ETH"</li>
+                                        }).collect_view()}
+                                    </ul>
+                                    {(!b.errors.is_empty()).then(|| view! {
+                                        <p class="text-yellow-400 text-sm text-center">
+                                            {format!("{} chain(s) failed", b.errors.len())}
+                                        </p>
+                                        <button
+                                            class="text-blue-400 text-sm text-center w-full mt-1"
+                                            style="background:none;border:none;cursor:pointer"
+                                            on:click=move |_| {
+                                                set_balance.set(None);
+                                                set_error.set(None);
+                                                set_loading.set(true);
+                                                spawn_local(async move {
+                                                    match tauri_invoke::<_, UnifiedBalance>(
+                                                        "get_wallet_balance",
+                                                        &EmptyArgs {},
+                                                    ).await {
+                                                        Ok(b) => set_balance.set(Some(b)),
+                                                        Err(e) => set_error.set(Some(e)),
+                                                    }
+                                                    set_loading.set(false);
+                                                });
+                                            }
+                                        >
+                                            "Refresh"
+                                        </button>
+                                    })}
                                 </div>
+                            })}
+
+                            {err.map(|e| view! { <p class="text-red-400 text-center">{e}</p> })}
+
+                            <div class="action-row">
+                                <a href="/send" class="action-btn">
+                                    <span class="icon">"↑"</span>
+                                    <span>"Send"</span>
+                                </a>
+                                <a href="/receive" class="action-btn">
+                                    <span class="icon">"↓"</span>
+                                    <span>"Receive"</span>
+                                </a>
+                                <a href="/scan" class="action-btn">
+                                    <span class="icon">"⛨"</span>
+                                    <span>"Scan"</span>
+                                </a>
                             </div>
-                        }.into_any()
-                    }
+                        </div>
+                    }.into_any()
                 }
             }}
         </div>

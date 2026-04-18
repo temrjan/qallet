@@ -23,14 +23,6 @@ pub fn copy_to_clipboard(text: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// Navigate by setting window.location.href.
-///
-/// Reliable in iOS WKWebView where `use_navigate()` fails inside `spawn_local`.
-pub fn navigate_to(path: &str) {
-    let code = format!("window.location.href='{path}'");
-    let _ = js_sys::eval(&code);
-}
-
 /// Type-safe invoke wrapper for calling tauri::command from WASM.
 pub async fn tauri_invoke<A, R>(cmd: &str, args: &A) -> Result<R, String>
 where

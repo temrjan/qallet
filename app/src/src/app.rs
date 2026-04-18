@@ -1,11 +1,57 @@
 use leptos::prelude::*;
+use leptos::task::spawn_local;
 use leptos_router::components::*;
 use leptos_router::path;
+use serde::Serialize;
 
+use crate::bridge::tauri_invoke;
 use crate::pages::{activity, analyze, home, receive, send, settings, unlock, wallet};
+
+/// Application authentication state — drives navigation guards and TabBar visibility.
+///
+/// The state is provided as a [`RwSignal<WalletState>`] via context in [`App`]
+/// and consumed by pages (home, unlock, wallet) to route the user and by
+/// [`TabBar`] to decide whether to render.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WalletState {
+    /// Backend not yet queried — first frame after mount.
+    Loading,
+    /// No keystore file exists — user must create or import a wallet.
+    Uninit,
+    /// Keystore exists but wallet is locked — user must enter password.
+    Locked,
+    /// Wallet is unlocked — authenticated routes accessible.
+    Unlocked,
+}
+
+#[derive(Serialize)]
+struct EmptyArgs {}
 
 #[component]
 pub fn App() -> impl IntoView {
+    // Auth state shared across all child components via context.
+    // Starts as Loading; resolved asynchronously by the startup probe below.
+    let state = RwSignal::new(WalletState::Loading);
+    provide_context(state);
+
+    // Startup probe: does a keystore exist? Is the wallet already unlocked?
+    //
+    // On invoke error we stay in Loading — failing open to Uninit could hide
+    // an existing wallet behind the "create" flow. User recovers via restart.
+    spawn_local(async move {
+        match tauri_invoke::<_, bool>("has_wallet", &EmptyArgs {}).await {
+            Ok(false) => state.set(WalletState::Uninit),
+            Ok(true) => {
+                match tauri_invoke::<_, bool>("is_wallet_unlocked", &EmptyArgs {}).await {
+                    Ok(true) => state.set(WalletState::Unlocked),
+                    Ok(false) => state.set(WalletState::Locked),
+                    Err(_) => {}
+                }
+            }
+            Err(_) => {}
+        }
+    });
+
     view! {
         <Router>
             <main class="app-content">
@@ -20,7 +66,12 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/wallet/create") view=wallet::WalletPage />
                 </Routes>
             </main>
-            <TabBar />
+            <Show
+                when=move || state.get() == WalletState::Unlocked
+                fallback=|| ()
+            >
+                <TabBar />
+            </Show>
         </Router>
     }
 }

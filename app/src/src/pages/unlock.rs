@@ -1,10 +1,12 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use leptos_router::hooks::use_navigate;
 use rustok_types::WalletInfo;
 use serde::{Deserialize, Serialize};
 use web_sys::wasm_bindgen::JsCast;
 
-use crate::bridge::{navigate_to, tauri_invoke};
+use crate::app::WalletState;
+use crate::bridge::tauri_invoke;
 
 #[derive(Serialize)]
 struct UnlockArgs {
@@ -27,6 +29,10 @@ struct BiometricStatus {
 
 #[component]
 pub fn UnlockPage() -> impl IntoView {
+    let auth_state = use_context::<RwSignal<WalletState>>()
+        .expect("WalletState context missing — must be provided in App");
+    let navigate = use_navigate();
+
     let (password, set_password) = signal(String::new());
     let (error, set_error) = signal(None::<String>);
     let (loading, set_loading) = signal(false);
@@ -54,112 +60,133 @@ pub fn UnlockPage() -> impl IntoView {
     });
 
     // Biometric unlock: authenticate → retrieve stored password → unlock.
-    let biometric_unlock = move |_| {
-        set_loading.set(true);
-        set_error.set(None);
+    let biometric_unlock = {
+        let navigate = navigate.clone();
+        move |_| {
+            set_loading.set(true);
+            set_error.set(None);
 
-        spawn_local(async move {
-            // 1. Biometric prompt via plugin.
-            if let Err(e) = tauri_invoke::<_, ()>(
-                "plugin:biometric|authenticate",
-                &BiometricAuthArgs {
-                    reason: "Unlock your Rustok wallet".into(),
-                },
-            )
-            .await
-            {
-                set_error.set(Some(format!("Biometric failed: {e}")));
+            let navigate = navigate.clone();
+            spawn_local(async move {
+                // 1. Biometric prompt via plugin.
+                if let Err(e) = tauri_invoke::<_, ()>(
+                    "plugin:biometric|authenticate",
+                    &BiometricAuthArgs {
+                        reason: "Unlock your Rustok wallet".into(),
+                    },
+                )
+                .await
+                {
+                    set_error.set(Some(format!("Biometric failed: {e}")));
+                    set_loading.set(false);
+                    return;
+                }
+
+                // 2. Unlock with stored password.
+                match tauri_invoke::<_, WalletInfo>("biometric_unlock_wallet", &EmptyArgs {}).await
+                {
+                    Ok(_) => {
+                        auth_state.set(WalletState::Unlocked);
+                        navigate("/", Default::default());
+                    }
+                    Err(e) => set_error.set(Some(e)),
+                }
                 set_loading.set(false);
-                return;
-            }
-
-            // 2. Unlock with stored password.
-            match tauri_invoke::<_, WalletInfo>("biometric_unlock_wallet", &EmptyArgs {}).await {
-                Ok(_) => navigate_to("/"),
-                Err(e) => set_error.set(Some(e)),
-            }
-            set_loading.set(false);
-        });
+            });
+        }
     };
 
     let password_ref = NodeRef::<leptos::html::Input>::new();
 
     // Password unlock — read value directly from DOM for Android WebView compatibility.
-    let unlock = move |_| {
-        let pwd = password_ref
-            .get()
-            .map(|el| {
-                el.clone()
-                    .dyn_into::<web_sys::HtmlInputElement>()
-                    .ok()
-                    .map(|input| input.value())
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default();
-        if pwd.is_empty() {
-            set_error.set(Some("Enter your password".into()));
-            return;
-        }
-
-        set_password.set(pwd.clone());
-        set_loading.set(true);
-        set_error.set(None);
-
-        spawn_local(async move {
-            match tauri_invoke::<_, WalletInfo>("unlock_wallet", &UnlockArgs { password: pwd })
-                .await
-            {
-                Ok(_) => {
-                    // If biometric is available but not enabled, offer to enable.
-                    if bio_available.get() && !bio_enabled.get() {
-                        set_show_bio_prompt.set(true);
-                        set_loading.set(false);
-                    } else {
-                        navigate_to("/");
-                    }
-                }
-                Err(e) => set_error.set(Some(e)),
-            }
-            set_loading.set(false);
-        });
-    };
-
-    // Enable biometric after password unlock.
-    let enable_bio = move |_| {
-        let pwd = password.get();
-        set_loading.set(true);
-
-        spawn_local(async move {
-            // Verify biometric works.
-            if let Err(e) = tauri_invoke::<_, ()>(
-                "plugin:biometric|authenticate",
-                &BiometricAuthArgs {
-                    reason: "Enable Face ID for Rustok".into(),
-                },
-            )
-            .await
-            {
-                set_error.set(Some(format!("Biometric failed: {e}")));
-                set_loading.set(false);
+    let unlock = {
+        let navigate = navigate.clone();
+        move |_| {
+            let pwd = password_ref
+                .get()
+                .map(|el| {
+                    el.clone()
+                        .dyn_into::<web_sys::HtmlInputElement>()
+                        .ok()
+                        .map(|input| input.value())
+                        .unwrap_or_default()
+                })
+                .unwrap_or_default();
+            if pwd.is_empty() {
+                set_error.set(Some("Enter your password".into()));
                 return;
             }
 
-            // Store password.
-            match tauri_invoke::<_, ()>(
-                "enable_biometric_unlock",
-                &UnlockArgs { password: pwd },
-            )
-            .await
-            {
-                Ok(()) => navigate_to("/"),
-                Err(e) => set_error.set(Some(e)),
-            }
-            set_loading.set(false);
-        });
+            set_password.set(pwd.clone());
+            set_loading.set(true);
+            set_error.set(None);
+
+            let navigate = navigate.clone();
+            spawn_local(async move {
+                match tauri_invoke::<_, WalletInfo>("unlock_wallet", &UnlockArgs { password: pwd })
+                    .await
+                {
+                    Ok(_) => {
+                        // If biometric is available but not enabled, offer to enable.
+                        if bio_available.get() && !bio_enabled.get() {
+                            set_show_bio_prompt.set(true);
+                            set_loading.set(false);
+                        } else {
+                            auth_state.set(WalletState::Unlocked);
+                            navigate("/", Default::default());
+                        }
+                    }
+                    Err(e) => set_error.set(Some(e)),
+                }
+                set_loading.set(false);
+            });
+        }
+    };
+
+    // Enable biometric after password unlock.
+    let enable_bio = {
+        let navigate = navigate.clone();
+        move |_| {
+            let pwd = password.get();
+            set_loading.set(true);
+
+            let navigate = navigate.clone();
+            spawn_local(async move {
+                // Verify biometric works.
+                if let Err(e) = tauri_invoke::<_, ()>(
+                    "plugin:biometric|authenticate",
+                    &BiometricAuthArgs {
+                        reason: "Enable Face ID for Rustok".into(),
+                    },
+                )
+                .await
+                {
+                    set_error.set(Some(format!("Biometric failed: {e}")));
+                    set_loading.set(false);
+                    return;
+                }
+
+                // Store password.
+                match tauri_invoke::<_, ()>(
+                    "enable_biometric_unlock",
+                    &UnlockArgs { password: pwd },
+                )
+                .await
+                {
+                    Ok(()) => {
+                        auth_state.set(WalletState::Unlocked);
+                        navigate("/", Default::default());
+                    }
+                    Err(e) => set_error.set(Some(e)),
+                }
+                set_loading.set(false);
+            });
+        }
     };
 
     let skip_bio = move |_| {
-        navigate_to("/");
+        auth_state.set(WalletState::Unlocked);
+        navigate("/", Default::default());
     };
 
     view! {
