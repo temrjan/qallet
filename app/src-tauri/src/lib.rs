@@ -62,6 +62,7 @@ pub fn run() {
             commands::has_wallet,
             commands::is_wallet_unlocked,
             commands::unlock_wallet,
+            commands::lock_wallet,
             commands::get_wallet_balance,
             commands::preview_send,
             commands::send_eth,

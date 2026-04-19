@@ -31,5 +31,8 @@ Thumbs.db
 *.keystore
 keystore.properties
 
+# Play Store assets (generated locally, not source-of-truth)
+play-assets/
+
 # Internal docs (not public)
 docs/internal/

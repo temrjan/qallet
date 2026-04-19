@@ -344,6 +344,17 @@ pub async fn unlock_wallet(
     unlock_with_password(&password, &data_dir, &state)
 }
 
+/// Clear the in-memory wallet so subsequent commands require a fresh unlock.
+#[tauri::command]
+pub async fn lock_wallet(state: State<'_, AppState>) -> Result<(), String> {
+    let mut lock = state
+        .wallet
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?;
+    *lock = None;
+    Ok(())
+}
+
 // ─── Balance from wallet state ─────────────────────────────────────
 
 #[tauri::command]

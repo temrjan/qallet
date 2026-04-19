@@ -1,7 +1,9 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use leptos_router::hooks::use_navigate;
 use serde::{Deserialize, Serialize};
 
+use crate::app::WalletState;
 use crate::bridge::tauri_invoke;
 
 #[derive(Serialize)]
@@ -15,9 +17,26 @@ struct BiometricStatus {
 
 #[component]
 pub fn SettingsPage() -> impl IntoView {
+    let auth_state = use_context::<RwSignal<WalletState>>()
+        .expect("WalletState context missing — must be provided in App");
+    let navigate = use_navigate();
+
     let (address, set_address) = signal(None::<String>);
     let (bio_available, set_bio_available) = signal(false);
     let (bio_enabled, set_bio_enabled) = signal(false);
+
+    // Lock: clear in-memory wallet on backend, drop to Locked state, redirect.
+    let lock = {
+        let navigate = navigate.clone();
+        move |_| {
+            let navigate = navigate.clone();
+            spawn_local(async move {
+                let _ = tauri_invoke::<_, ()>("lock_wallet", &EmptyArgs {}).await;
+                auth_state.set(WalletState::Locked);
+                navigate("/unlock", Default::default());
+            });
+        }
+    };
 
     // Fetch state on mount.
     spawn_local(async move {
@@ -91,7 +110,9 @@ pub fn SettingsPage() -> impl IntoView {
             // Actions.
             <div class="mt-4">
                 <a href="/wallet/create" class="block text-blue-400 text-sm mb-4">"Create New Wallet"</a>
-                <a href="/unlock" class="block text-blue-400 text-sm">"Lock Wallet"</a>
+                <button on:click=lock class="block text-blue-400 text-sm text-left w-full">
+                    "Lock Wallet"
+                </button>
             </div>
 
             // About.
