@@ -1,122 +1,85 @@
-# Следующая сессия — Phase 3 release infra
+# Следующая сессия
 
-## Статус (конец 2026-04-18)
+## Статус (конец 2026-04-22)
 
-**Phase 3 Mobile функционально закрыта.** Полная сессия 2026-04-18 — 17+ коммитов, все CI зелёные.
+**v0.1.2 LIVE в Google Play Internal Testing.** AAB `versionCode=1002, versionName=0.1.2`
+загружен и активен. 8 коммитов за сессию, CI зелёный на `feff243`.
 
-Проверено end-to-end на Sepolia testnet:
-- iPhone 17 Pro Simulator (iOS 26.4): unlock, create (4-step BIP39 wizard), restore, send, receive, copy address, QR
-- Pixel_8 эмулятор (API 35): то же самое, TLS работает через bundled rustls-platform-verifier JAR
-- **Cross-device:** одна phrase на iOS → тот же адрес на Android (подтверждено `0xbaB6...3A6c`)
+### Что закрыто в v0.1.2
 
-Что запустилось сегодня:
-- BIP39 seed phrase: 4-step wizard на create, Restore page, `generate_mnemonic_phrase` / `create_wallet_with_mnemonic` / `import_wallet_from_mnemonic` commands, `m/44'/60'/0'/0/0` MetaMask-совместимый путь
-- Android TLS: classes.jar из rustls-platform-verifier-android AAR в `gen/android/app/libs/` + ProGuard keep rule
-- Auth architecture: `WalletState` enum, conditional `<TabBar>` через `Show` + context, Effect-based route guards, `use_navigate` везде (JS `navigate_to()` hack удалён)
-- UX: auto-refresh balance (30s polling + visibilitychange), text-white password input, чистый invoke error, `navigator.clipboard.writeText` с fallback, EIP-681 QR
-- Tests: **112** (core 64, desktop 8, txguard 38, doctests 2). Было 103.
+Корневая причина всех bugs "N chain(s) failed/unavailable" на Android release build —
+**`rustls-platform-verifier 0.6.2`**. Его Android backend вызывает
+`CertPathValidator` в strict PKIX режиме с принудительной revocation-проверкой через
+`PKIXRevocationChecker`. Let's Encrypt отключил OCSP в августе 2025 — серты без
+OCSP URL (`eth.llamarpc.com`, `arb1.arbitrum.io`, `*.blockscout.com` и миллионы
+других LE-сайтов) интерпретируются как `Revoked` и ломают TLS handshake.
+
+**Fix:** убран `rustls-platform-verifier`, `rustls::ClientConfig` собирается
+явно через `webpki-roots` + `ring` (shared helper `crates/core/src/http.rs`).
+Семантически это то, что делают MetaMask Mobile и MEW — OkHttp + Android
+system TrustManager тоже не выполняют live OCSP check.
+
+**Сопутствующие правки:**
+- `alloy-provider` / `alloy-transport-http` с `default-features = false, features = ["reqwest"]` —
+  чтобы не тянуть `rustls-platform-verifier` транзитивно через `reqwest-default-tls`
+- Chains swap: `llamarpc` (glitch `-32014 header not found`) + `ankr.com` (401 без
+  API key) → `publicnode.com` + `cloudflare-eth.com` + `drpc.org`. Все с OCSP URL
+  от Google Trust Services.
+- Tracing subscriber (`paranoid-android` на mobile, `tracing_subscriber::fmt` на
+  desktop). Логи с тегом `rustok` в logcat, фильтр `rustok_core=debug`.
+
+### Инфраструктура (готово, не подключено)
+
+`deploy/rpc-proxy/` — Cloudflare Worker на `rpc.rustokwallet.com` с маршрутами
+`/rpc/{chain}` и `/explorer/{chain}/...`. Задеплоен, Custom Domain привязан
+(CF-issued Let's Encrypt — OCSP-less, поэтому прокси без client-side TLS-фикса
+не спасал бы). Использовать как optional fallback + analytics в будущем.
+
+### Тесты / стэк (стабильно)
+
+- 112 тестов зелёные
+- Core: Rust 2024, alloy-rs 1.8, revm v36
+- App: Tauri 2.0, Leptos 0.7, rustls 0.23 + webpki-roots
+- Android: minSDK 24, target API 36, NDK 30.0.14904198
 
 ## Что делать в следующей сессии
 
-Три блокера release: **privacy policy → release build signing → Google Play Internal Testing**. Плюс пост-публикационные активности и UX-хвосты.
+### 1. Новый UI дизайн (приоритет)
 
-### 1. Privacy policy — hard блокер Google Play
+Пользователь готовил новый крупный проект по дизайну. Нужно посмотреть макет,
+оценить объём правок по Leptos, согласовать scope (v0.2 или частично в v0.1.3).
 
-Без неё Google Play Console отклонит listing.
+### 2. iOS публикация (блокер — $99/год Apple Developer)
 
-**Объём:** одна страница, размещённая на `rustokwallet.com/privacy` (Astro 6 landing, `src/pages/privacy.astro`).
+После оплаты Apple Developer Program → `cargo tauri ios build --target aarch64 --release`
+→ Xcode archive → App Store Connect → TestFlight. Код готов, cross-device проверен
+на iPhone 17 Pro Simulator (адрес `0xbaB6...3A6c` совпадает с Android на той же
+phrase).
 
-**Что должно быть:**
-- Какие персональные данные собираем — *none on-device, RPC endpoints видят IP + address on query*
-- Где хранится keystore — *local encrypted file (Argon2id + AES-GCM), never transmitted*
-- Third-party services: Blockscout/Etherscan API, RPC providers (Alchemy, Cloudflare). Перечислить
-- Platform-specific disclosure: Biometric data (iOS Face ID, Android BiometricPrompt) не покидает устройство
-- Contact email (support/privacy address)
-- Effective date
+### 3. Cloudflare Worker proxy как опциональный RPC (Settings toggle)
 
-**Референс:** MetaMask privacy policy, Trust Wallet. Plain language, ~1-2 страницы.
+- Settings → "Use Rustok RPC proxy" toggle (default off)
+- Endpoint `rpc.rustokwallet.com/rpc/{chain}` + `/explorer/{chain}/api`
+- `MultiProvider::custom_chains(proxy_base_url)` конструктор
+- Fallback на прямые публичные RPC если proxy вернул 5xx
 
-### 2. Release build + signing key
+Это не блокер — webpki-roots уже закрывает TLS class of failures. Прокси даст
+аналитику + резервирование.
 
-#### Android
-```bash
-# Generate release keystore (ОДИН раз, хранить в password manager!)
-keytool -genkey -v -keystore rustok-release.jks \
-  -keyalg RSA -keysize 4096 -validity 10000 -alias rustok
+### 4. Phase 4: Cross-chain via Across Protocol
 
-# gen/android/app/keystore.properties (in .gitignore):
-#   storeFile=<absolute path>
-#   storePassword=<...>
-#   keyAlias=rustok
-#   keyPassword=<...>
-```
+После нового UI. Интеграция `@across-protocol/sdk` → транзакция bridge
+ETH Arbitrum → Base через intent solver. `crates/bridge/` новый crate.
 
-Поправить `gen/android/app/build.gradle.kts`:
-```kotlin
-import java.util.Properties
-val keystoreProps = Properties().apply {
-    val f = rootProject.file("app/keystore.properties")
-    if (f.exists()) load(f.inputStream())
-}
-android {
-    signingConfigs {
-        create("release") {
-            keyAlias = keystoreProps.getProperty("keyAlias")
-            keyPassword = keystoreProps.getProperty("keyPassword")
-            storeFile = file(keystoreProps.getProperty("storeFile"))
-            storePassword = keystoreProps.getProperty("storePassword")
-        }
-    }
-    buildTypes {
-        getByName("release") {
-            signingConfig = signingConfigs.getByName("release")
-            // ProGuard уже настроен с keep rule для rustls
-        }
-    }
-}
-```
+### 5. UX-хвосты (не блокеры)
 
-Собрать AAB:
-```bash
-cd app && cargo tauri android build --target aarch64 --target armv7 --target x86_64
-# выход: gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
-```
-
-**Проверить после release build:** Android TLS всё ещё работает (ProGuard keep rule держит `org.rustls.platformverifier.**` классы). E2E тест на эмуляторе — unlock/send на Sepolia.
-
-#### iOS
-Apple Developer Program $99/год пока не оплачен — TestFlight недоступен. После оплаты:
-```bash
-cargo tauri ios build --target aarch64 --release
-# archive через Xcode, upload в App Store Connect
-```
-
-### 3. Google Play Internal Testing listing
-
-- Google Play Console аккаунт ($25) — **верификация пройдена** 2026-04-18
-- Path: Create app → package `com.rustok.app` → Internal testing track → AAB upload
-- Нужно подготовить:
-  - Short description (~80 символов) и full description (~4000)
-  - Icon 512×512 (есть в `crates/ui/assets/` или landing)
-  - Feature graphic 1024×500
-  - 2–8 screenshots (phone + optionally tablet) — можно взять с Pixel_8 эмулятора: Home, Send, Activity, Settings, Create wizard
-  - Data safety questionnaire (без personal data — straightforward)
-  - Privacy policy URL → точка 1
-  - Category: Finance
-
-### 4. Пост-публикация X
-
-Твит от 2026-04-18 с видео Send + txguard thread. В следующей сессии:
-- Проверить engagement (impressions, retweets), особенно от `@tauri_apps`, `@gakonst`
-- Reply на комменты в первые 24-48 часов
-- Quote tweet с tx hash Sepolia (proof signal) если ещё не добавлен
-- Если traction пойдёт (>500 impressions первые сутки) — submit на Hacker News (title: *Rustok – Rust Ethereum wallet with in-process tx simulation*)
-
-### 5. UX-хвосты (опционально, не блокеры)
-
-- **Settings → Show Recovery Phrase:** сейчас mnemonic не persisted, только показывается при create. Для reveal нужно хранить encrypted mnemonic рядом с encrypted private key — требует v2 keystore формата + миграция v1 wallets (не мигрируемы, нужен путь "export private key → create new v2 with seed"). Security-critical, отдельный PR.
-- **Transaction history polling:** Activity tab fetch'ит при mount; добавить polling как у balance.
-- **Send на Android реальными средствами после релиза:** Sepolia testnet покрыт, mainnet — после аудита txguard rules.
+- **Settings → Show Recovery Phrase:** требует v2 keystore format
+  (encrypted mnemonic + encrypted private key). Security-critical, отдельный PR
+  с ревью.
+- **Transaction history polling** в Activity (сейчас fetch при mount)
+- **Copy address** на Android WebView — возможно через `tauri-plugin-clipboard-manager`
+- **Cosmetic:** белые кнопки в Settings (`app/src/src/pages/settings.rs`),
+  brand launcher icon (`cargo tauri icon rustok-landing/public/logo.png`)
 
 ## Технический контекст
 
@@ -126,14 +89,17 @@ cd /Users/avangard/Workspace/projects/rustok
 cargo test --workspace       # 112 зелёных
 git log --oneline -10
 
-# Android:
+# Android release build на эмуляторе:
 source ~/.zshrc              # ANDROID_HOME, JAVA_HOME, NDK_HOME
-df -h /Library/Developer/CoreSimulator/Volumes/iOS_*   # >500 MB free перед iOS build!
-adb devices
+$ANDROID_HOME/emulator/emulator -avd Pixel_8 -no-snapshot-load &
+cd app && cargo tauri android build --apk --target aarch64 --split-per-abi
+adb install -r gen/android/app/build/outputs/apk/arm64/release/app-arm64-release.apk
+adb shell am start -n com.rustok.app/.MainActivity
+adb logcat -s rustok:V       # все наши tracing logs
 
-# Сборки:
-cargo tauri android build --debug --target aarch64
-cargo tauri ios build --debug --target aarch64-sim
+# AAB для Play Console:
+cargo tauri android build --aab --target aarch64 --target armv7 --target x86_64
+# -> gen/android/app/build/outputs/bundle/universalRelease/app-universal-release.aab
 ```
 
 ### Воркфлоу
@@ -143,24 +109,22 @@ LIGHT (конфиг, 1 файл, docs):
   Изучи → Сделай → /check → Ревью diff → Коммит → Пуш → CI
 
 FULL (фичи, рефакторинг, security, multi-file):
-  Изучи → /codex → План с pros/cons → /check → Реализуй → Ревью → Коммит → Пуш → CI
+  Изучи → /codex → План с pros/cons → /check → /codex → Реализуй → Ревью → Коммит → Пуш → CI
 ```
 
-`/check` и `git diff` перед коммитом — неизменное ядро. Ждём CI зелёного после каждого пуша.
-
-### Адреса и phrase (demo only, Sepolia testnet)
-
-- Android: `0xFBac75e66C9487001F0a76C6843EA4E1994ad377` (создан сегодня при пересборке emulator)
-- iOS: `0xbaB6...3A6c` (из первоначального cross-device теста, phrase: `cruel surprise original fish private cruel arrive embody bulb loyal accident bulk` — **только demo, не использовать для real funds**)
+`/check` и `git diff` перед коммитом — неизменное ядро. Ждём CI зелёного.
 
 ### Ссылки
 
+- Cloudflare Worker: https://rpc.rustokwallet.com/health
 - Vault debug: `ssh 7demo /root/vault/debug/rustok-android-rustls-platform-verifier.md`
-- Memory: `memory/rustok-progress.md` — общая картина, `memory/rustok-disk-space-check.md` — iOS Simulator disk
+- Memory: `memory/rustok-progress.md` — общая картина, `memory/rustok-v012-bugs.md` — архив
 - GitHub Actions CI: https://github.com/temrjan/rustok/actions
+- upstream TLS issue: https://github.com/rustls/rustls-platform-verifier/issues/221
 
 ## Не делать в следующей сессии
 
-- Не начинать Phase 4 (cross-chain bridging) пока Google Play launch не закрыт
+- Не возвращать `rustls-platform-verifier` (tempted by "system trust store" — webpki-roots достаточно для consumer wallet)
+- Не подключать Cloudflare Worker в production пока webpki-roots работает — сначала дизайн и Phase 4
 - Не переписывать keystore формат без security review
-- Не публиковать release AAB до валидации на эмуляторе (ProGuard может вырезать нужные классы)
+- Не публиковать v0.2 release AAB до валидации на эмуляторе + физическом устройстве (ProGuard regression surface)
