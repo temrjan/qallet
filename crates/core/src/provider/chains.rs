@@ -31,8 +31,9 @@ pub fn default_chains() -> Vec<Chain> {
             id: 1,
             name: "Ethereum".into(),
             rpc_urls: vec![
-                "https://eth.llamarpc.com".into(),
-                "https://rpc.ankr.com/eth".into(),
+                "https://ethereum-rpc.publicnode.com".into(),
+                "https://cloudflare-eth.com".into(),
+                "https://eth.drpc.org".into(),
             ],
             explorer_url: "https://etherscan.io".into(),
             native_symbol: "ETH".into(),
@@ -43,8 +44,8 @@ pub fn default_chains() -> Vec<Chain> {
             id: 42161,
             name: "Arbitrum One".into(),
             rpc_urls: vec![
-                "https://arb1.arbitrum.io/rpc".into(),
-                "https://rpc.ankr.com/arbitrum".into(),
+                "https://arbitrum-one-rpc.publicnode.com".into(),
+                "https://arbitrum.drpc.org".into(),
             ],
             explorer_url: "https://arbiscan.io".into(),
             native_symbol: "ETH".into(),
