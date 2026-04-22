@@ -42,11 +42,7 @@ pub fn run() {
             Ok(())
         })
         .manage(AppState {
-            provider: if cfg!(debug_assertions) {
-                MultiProvider::default_chains()
-            } else {
-                MultiProvider::mainnets_only()
-            },
+            provider: MultiProvider::default_chains(),
             explorer: ExplorerClient::new(),
             wallet: Mutex::new(None),
         })
