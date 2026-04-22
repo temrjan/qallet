@@ -1,0 +1,13 @@
+name = "rustok-rpc-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+workers_dev = true
+
+# Custom domain is configured in Cloudflare Dashboard:
+# Workers & Pages -> rustok-rpc-proxy -> Settings -> Triggers -> Custom Domains
+# -> Add Custom Domain: rpc.rustokwallet.com
+#
+# Cloudflare creates the DNS record automatically. No manual A record needed.
+
+[observability]
+enabled = true
