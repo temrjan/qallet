@@ -99,7 +99,9 @@ impl ExplorerClient {
     /// Create a new explorer client with sensible timeouts.
     #[must_use]
     pub fn new() -> Self {
-        Self { http: crate::http::build_http_client() }
+        Self {
+            http: crate::http::build_http_client(),
+        }
     }
 
     /// Fetch transaction history for an address across all supported chains.

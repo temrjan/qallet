@@ -6,8 +6,8 @@ use rustok_core::provider::MultiProvider;
 use std::sync::Mutex;
 
 fn init_tracing() {
-    use tracing_subscriber::EnvFilter;
     use tracing_subscriber::prelude::*;
+    use tracing_subscriber::EnvFilter;
 
     let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
         EnvFilter::new("info,rustok_core=debug,rustok_desktop_lib=debug,reqwest=info,rustls=info")
