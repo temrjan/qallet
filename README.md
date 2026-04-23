@@ -187,4 +187,32 @@ Deployed via Docker + Caddy on 185.197.195.191 (`deploy/`).
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE)
+Rustok is dual-licensed:
+
+- **[AGPL-3.0-or-later](LICENSE)** — open source. Free for any use that
+  complies with AGPL terms, including making source code of derivative
+  works and network-accessible services available to users.
+- **[Commercial License](LICENSE-COMMERCIAL.md)** — available from the
+  copyright holder for uses that cannot comply with AGPL-3.0 (e.g.
+  closed-source Apple App Store or Google Play distribution, bundling
+  into proprietary products).
+
+See [`NOTICE.md`](NOTICE.md) for a summary of licensing, trademarks, and
+contribution terms.
+
+### Trademarks
+
+"Rustok" and "txguard" are trademarks of Temrjan Khasenov. Source code
+is AGPL-3.0, but the marks are not — see [`TRADEMARK.md`](TRADEMARK.md).
+
+### Visual assets
+
+Logos, icons, and brand imagery are **not** under AGPL-3.0. See
+[`ASSETS-LICENSE.md`](ASSETS-LICENSE.md).
+
+### Contributing
+
+Contributions are accepted under the Developer Certificate of Origin
+(DCO). See [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+Copyright (c) 2025-2026 Temrjan Khasenov.
