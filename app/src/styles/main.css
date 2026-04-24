@@ -1,5 +1,29 @@
 /* Rustok — Amber on neutral dark (OltinPay-inspired) */
 
+/* ── PIN / passcode animations ─────────────────────────────── */
+@keyframes rw-shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60%  { transform: translateX(-8px); }
+    40%, 80%  { transform: translateX(8px); }
+}
+.rw-shake { animation: rw-shake 0.4s; }
+
+/* Keypad button press tactile feedback */
+.rw-keypad-btn:active {
+    background: rgba(131, 135, 195, 0.25) !important;
+}
+
+/* PIN screen outer container */
+.pin-screen {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    background: #FFFFFF;
+}
+.pin-screen-onboarding {
+    background: #F6F7FB;
+}
+
 *, *::before, *::after {
     box-sizing: border-box;
 }

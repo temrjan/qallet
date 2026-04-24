@@ -227,8 +227,9 @@ pub async fn import_wallet_from_mnemonic(
     app_handle: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<WalletInfo, String> {
-    validate_password(&password)?;
-
+    // No length validation: caller may pass a 6-digit PIN (new UX) or a text
+    // password (CLI / legacy). Argon2id works correctly with any non-empty input;
+    // the UI enforces the format constraint before invoking this command.
     let keyring = LocalKeyring::from_mnemonic(&phrase, &password)
         .map_err(|e| format!("failed to import wallet: {e}"))?;
 

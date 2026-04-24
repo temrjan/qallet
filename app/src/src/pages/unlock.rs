@@ -1,20 +1,36 @@
+//! Unlock screen — 6-digit PIN keypad with optional biometric shortcut.
+//!
+//! Auto-submits when the 6th digit is entered. Wrong PIN triggers a shake
+//! animation and clears the entry. Biometric button appears when Face ID /
+//! Touch ID is enrolled and available via `tauri-plugin-biometric`.
+
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::hooks::use_navigate;
 use rustok_types::WalletInfo;
 use serde::{Deserialize, Serialize};
-use web_sys::wasm_bindgen::JsCast;
 
 use crate::app::WalletState;
 use crate::bridge::tauri_invoke;
+use crate::components::{Keypad, PasscodeDots, PASSCODE_LENGTH};
+
+// ─── Token constants (new palette) ──────────────────────────────────────────
+const BG: &str = "#F6F7FB";
+const BRAND: &str = "#0A1123";
+const ACCENT: &str = "#8387C3";
+const MUTED: &str = "#959BB5";
+const FONT: &str =
+    r#"Roboto, -apple-system, "SF Pro Display", "SF Pro Text", system-ui, sans-serif"#;
+
+// ─── Tauri arg types ─────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct EmptyArgs {}
 
 #[derive(Serialize)]
 struct UnlockArgs {
     password: String,
 }
-
-#[derive(Serialize)]
-struct EmptyArgs {}
 
 #[derive(Serialize)]
 struct BiometricAuthArgs {
@@ -27,47 +43,98 @@ struct BiometricStatus {
     is_available: bool,
 }
 
+/// Unlock screen component.
 #[component]
 pub fn UnlockPage() -> impl IntoView {
     let auth_state = use_context::<RwSignal<WalletState>>()
         .expect("WalletState context missing — must be provided in App");
     let navigate = use_navigate();
 
-    let (password, set_password) = signal(String::new());
-    let (error, set_error) = signal(None::<String>);
-    let (loading, set_loading) = signal(false);
+    let pin = RwSignal::new(String::new());
+    let filled = Signal::derive(move || pin.read().len());
+    let error = RwSignal::new(false);
+    let shake = RwSignal::new(false);
+    let loading = RwSignal::new(false);
+    let bio_available = RwSignal::new(false);
+    let bio_enabled = RwSignal::new(false);
 
-    // Biometric state.
-    let (bio_available, set_bio_available) = signal(false);
-    let (bio_enabled, set_bio_enabled) = signal(false);
-    // After password unlock: offer to enable biometric.
-    let (show_bio_prompt, set_show_bio_prompt) = signal(false);
-
-    // Check biometric availability + enabled status on mount.
+    // Check biometric availability on mount.
     spawn_local(async move {
-        // Check plugin status.
-        if let Ok(status) =
+        if let Ok(s) =
             tauri_invoke::<_, BiometricStatus>("plugin:biometric|status", &EmptyArgs {}).await
         {
-            set_bio_available.set(status.is_available);
+            bio_available.set(s.is_available);
         }
-        // Check if biometric.dat exists.
-        if let Ok(enabled) = tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await {
-            set_bio_enabled.set(enabled);
+        if let Ok(en) = tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await {
+            bio_enabled.set(en);
         }
     });
 
-    // Biometric unlock: authenticate → retrieve stored password → unlock.
-    let biometric_unlock = {
+    let do_unlock = {
         let navigate = navigate.clone();
-        move |_| {
-            set_loading.set(true);
-            set_error.set(None);
-
+        move |pw: String| {
+            loading.set(true);
             let navigate = navigate.clone();
             spawn_local(async move {
-                // 1. Biometric prompt via plugin.
-                if let Err(e) = tauri_invoke::<_, ()>(
+                match tauri_invoke::<_, WalletInfo>("unlock_wallet", &UnlockArgs { password: pw })
+                    .await
+                {
+                    Ok(_) => {
+                        auth_state.set(WalletState::Unlocked);
+                        navigate("/", Default::default());
+                    }
+                    Err(_) => {
+                        error.set(true);
+                        shake.set(true);
+                        set_timeout(
+                            move || {
+                                pin.set(String::new());
+                                error.set(false);
+                                shake.set(false);
+                                loading.set(false);
+                            },
+                            std::time::Duration::from_millis(500),
+                        );
+                    }
+                }
+            });
+        }
+    };
+
+    let on_press = {
+        let do_unlock = do_unlock.clone();
+        Callback::new(move |d: char| {
+            if loading.get_untracked() || shake.get_untracked() {
+                return;
+            }
+            let mut s = pin.get_untracked();
+            if s.len() < PASSCODE_LENGTH {
+                s.push(d);
+            }
+            let len = s.len();
+            pin.set(s.clone());
+            if len == PASSCODE_LENGTH {
+                do_unlock.clone()(s);
+            }
+        })
+    };
+
+    let on_backspace = Callback::new(move |_: ()| {
+        if loading.get_untracked() || shake.get_untracked() {
+            return;
+        }
+        pin.update(|s| {
+            s.pop();
+        });
+    });
+
+    let bio_unlock = {
+        let navigate = navigate.clone();
+        move |_| {
+            loading.set(true);
+            let navigate = navigate.clone();
+            spawn_local(async move {
+                if let Err(_) = tauri_invoke::<_, ()>(
                     "plugin:biometric|authenticate",
                     &BiometricAuthArgs {
                         reason: "Unlock your Rustok wallet".into(),
@@ -75,182 +142,94 @@ pub fn UnlockPage() -> impl IntoView {
                 )
                 .await
                 {
-                    set_error.set(Some(format!("Biometric failed: {e}")));
-                    set_loading.set(false);
+                    loading.set(false);
                     return;
                 }
-
-                // 2. Unlock with stored password.
                 match tauri_invoke::<_, WalletInfo>("biometric_unlock_wallet", &EmptyArgs {}).await
                 {
                     Ok(_) => {
                         auth_state.set(WalletState::Unlocked);
                         navigate("/", Default::default());
                     }
-                    Err(e) => set_error.set(Some(e)),
-                }
-                set_loading.set(false);
-            });
-        }
-    };
-
-    let password_ref = NodeRef::<leptos::html::Input>::new();
-
-    // Password unlock — read value directly from DOM for Android WebView compatibility.
-    let unlock = {
-        let navigate = navigate.clone();
-        move |_| {
-            let pwd = password_ref
-                .get()
-                .map(|el| {
-                    el.clone()
-                        .dyn_into::<web_sys::HtmlInputElement>()
-                        .ok()
-                        .map(|input| input.value())
-                        .unwrap_or_default()
-                })
-                .unwrap_or_default();
-            if pwd.is_empty() {
-                set_error.set(Some("Enter your password".into()));
-                return;
-            }
-
-            set_password.set(pwd.clone());
-            set_loading.set(true);
-            set_error.set(None);
-
-            let navigate = navigate.clone();
-            spawn_local(async move {
-                match tauri_invoke::<_, WalletInfo>("unlock_wallet", &UnlockArgs { password: pwd })
-                    .await
-                {
-                    Ok(_) => {
-                        // If biometric is available but not enabled, offer to enable.
-                        if bio_available.get() && !bio_enabled.get() {
-                            set_show_bio_prompt.set(true);
-                            set_loading.set(false);
-                        } else {
-                            auth_state.set(WalletState::Unlocked);
-                            navigate("/", Default::default());
-                        }
+                    Err(_) => {
+                        error.set(true);
+                        shake.set(true);
+                        set_timeout(
+                            move || {
+                                error.set(false);
+                                shake.set(false);
+                                loading.set(false);
+                            },
+                            std::time::Duration::from_millis(500),
+                        );
                     }
-                    Err(e) => set_error.set(Some(e)),
                 }
-                set_loading.set(false);
             });
         }
-    };
-
-    // Enable biometric after password unlock.
-    let enable_bio = {
-        let navigate = navigate.clone();
-        move |_| {
-            let pwd = password.get();
-            set_loading.set(true);
-
-            let navigate = navigate.clone();
-            spawn_local(async move {
-                // Verify biometric works.
-                if let Err(e) = tauri_invoke::<_, ()>(
-                    "plugin:biometric|authenticate",
-                    &BiometricAuthArgs {
-                        reason: "Enable Face ID for Rustok".into(),
-                    },
-                )
-                .await
-                {
-                    set_error.set(Some(format!("Biometric failed: {e}")));
-                    set_loading.set(false);
-                    return;
-                }
-
-                // Store password.
-                match tauri_invoke::<_, ()>(
-                    "enable_biometric_unlock",
-                    &UnlockArgs { password: pwd },
-                )
-                .await
-                {
-                    Ok(()) => {
-                        auth_state.set(WalletState::Unlocked);
-                        navigate("/", Default::default());
-                    }
-                    Err(e) => set_error.set(Some(e)),
-                }
-                set_loading.set(false);
-            });
-        }
-    };
-
-    let skip_bio = move |_| {
-        auth_state.set(WalletState::Unlocked);
-        navigate("/", Default::default());
     };
 
     view! {
-        <div class="unlock-hero">
-            <img src="/logo.png" alt="Rustok" class="unlock-logo" />
-            <div class="unlock-title">"Rustok"</div>
-            <div class="unlock-subtitle">"Ethereum Wallet"</div>
-
-            // Error display.
-            {move || error.get().map(|e| view! { <p class="mt-2 text-red-400">{e}</p> })}
-
-            // Biometric prompt — shown after password unlock succeeds.
-            // CSS visibility avoids reactive closure DOM recreation (Android WebView fix).
-            <div class="unlock-form"
-                style:display=move || if show_bio_prompt.get() { "" } else { "none" }
-            >
-                <p class="text-gray-300 mb-4">"Enable Face ID for faster unlocks?"</p>
-                <button
-                    class="bg-indigo-600 px-4 py-3 rounded-xl w-full hover:bg-indigo-700 mb-2"
-                    on:click=enable_bio
-                    disabled=move || loading.get()
-                >
-                    {move || if loading.get() { "Setting up..." } else { "Enable Face ID" }}
-                </button>
-                <button
-                    class="text-gray-400 text-sm w-full text-center mt-2"
-                    on:click=skip_bio
-                >
-                    "Skip for now"
-                </button>
-            </div>
-
-            // Main unlock form — always in DOM, event handlers bind once.
-            <div class="unlock-form"
-                style:display=move || if show_bio_prompt.get() { "none" } else { "" }
-            >
-                <div style:display=move || if bio_available.get() && bio_enabled.get() { "" } else { "none" }>
-                    <button
-                        class="bg-indigo-600 px-4 py-3 rounded-xl w-full hover:bg-indigo-700 mb-4"
-                        on:click=biometric_unlock
-                        disabled=move || loading.get()
-                    >
-                        "Unlock with Face ID"
-                    </button>
-                    <p class="text-gray-400 text-sm text-center mb-4">"or enter password"</p>
+        <div style=format!(
+            "display:flex;flex-direction:column;min-height:100dvh;\
+             background:{BG};padding-top:max(52px,env(safe-area-inset-top));"
+        )>
+            // Header
+            <div style="display:flex;flex-direction:column;align-items:center;padding:32px 24px 0;">
+                // Lock icon
+                <div style=format!(
+                    "width:72px;height:72px;border-radius:22px;\
+                     background:rgba(131,135,195,0.12);\
+                     display:flex;align-items:center;justify-content:center;color:{ACCENT};"
+                )>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" stroke-width="1.8"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
                 </div>
 
-                <input
-                    type="password"
-                    class="border border-gray-600 rounded-xl p-2 w-full bg-gray-800 text-white"
-                    placeholder="Password"
-                    node_ref=password_ref
-                />
-                <button
-                    class="mt-2 bg-indigo-600 px-4 py-3 rounded-xl w-full hover:bg-indigo-700"
-                    on:click=unlock
-                    disabled=move || loading.get()
-                >
-                    {move || if loading.get() { "Unlocking..." } else { "Unlock" }}
-                </button>
+                <div style=format!(
+                    "margin-top:20px;font-family:{FONT};font-size:20px;\
+                     font-weight:700;color:{BRAND};letter-spacing:-0.3px;"
+                )>"Enter passcode"</div>
 
-                <p class="text-gray-400 text-sm mt-4 text-center">
-                    "No wallet? "
-                    <a href="/wallet/create" class="text-blue-400">"Create one"</a>
-                </p>
+                <div style=format!(
+                    "margin-top:8px;font-family:{FONT};font-size:14px;\
+                     color:{MUTED};text-align:center;max-width:240px;line-height:1.4;"
+                )>
+                    {move || if error.get() { "Wrong passcode — try again" } else { "Enter your 6-digit passcode to unlock" }}
+                </div>
+
+                <PasscodeDots filled=filled error=error shake=shake/>
             </div>
+
+            // Biometric shortcut
+            <div style="display:flex;justify-content:center;margin-top:24px;">
+                {move || (bio_available.get() && bio_enabled.get() && !loading.get()).then(|| view! {
+                    <button
+                        on:click=bio_unlock.clone()
+                        style=format!(
+                            "background:rgba(131,135,195,0.1);border:none;\
+                             border-radius:14px;padding:12px 20px;\
+                             font-family:{FONT};font-size:14px;font-weight:600;\
+                             color:{ACCENT};cursor:pointer;display:flex;\
+                             align-items:center;gap:8px;"
+                        )
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                        </svg>
+                        "Use Face ID"
+                    </button>
+                })}
+            </div>
+
+            <div style="flex:1;"/>
+
+            <Keypad on_press=on_press on_backspace=on_backspace/>
         </div>
     }
 }

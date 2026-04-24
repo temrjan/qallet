@@ -1,5 +1,6 @@
 mod app;
 mod bridge;
+mod components;
 mod pages;
 
 fn main() {
