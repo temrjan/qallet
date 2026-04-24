@@ -48,7 +48,7 @@ pub fn HomePage() -> impl IntoView {
     // Runs whenever `state` changes.
     let nav_guard = navigate.clone();
     Effect::new(move |_| match state.get() {
-        WalletState::Uninit => nav_guard("/wallet/create", Default::default()),
+        WalletState::Uninit => nav_guard("/welcome", Default::default()),
         WalletState::Locked => nav_guard("/unlock", Default::default()),
         WalletState::Loading | WalletState::Unlocked => {}
     });

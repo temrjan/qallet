@@ -5,7 +5,9 @@ use leptos_router::path;
 use serde::Serialize;
 
 use crate::bridge::tauri_invoke;
-use crate::pages::{activity, analyze, home, receive, restore, send, settings, unlock, wallet};
+use crate::pages::{
+    activity, analyze, home, receive, restore, send, settings, unlock, wallet, welcome,
+};
 
 /// Application authentication state — drives navigation guards and TabBar visibility.
 ///
@@ -61,6 +63,7 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("/activity") view=activity::ActivityPage />
                     <Route path=path!("/settings") view=settings::SettingsPage />
                     <Route path=path!("/unlock") view=unlock::UnlockPage />
+                    <Route path=path!("/welcome") view=welcome::WelcomePage />
                     <Route path=path!("/wallet/create") view=wallet::WalletPage />
                     <Route path=path!("/wallet/restore") view=restore::RestorePage />
                 </Routes>

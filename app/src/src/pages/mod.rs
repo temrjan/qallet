@@ -8,3 +8,4 @@ pub mod send;
 pub mod settings;
 pub mod unlock;
 pub mod wallet;
+pub mod welcome;
