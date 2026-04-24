@@ -1,9 +1,19 @@
+//! Send ETH — 3-step dark wizard: input → preview (with txguard verdict) → result.
+//!
+//! Preserves the existing `preview_send` / `send_eth` wiring and the
+//! auto-routing picks the cheapest chain on the backend side, so the UI
+//! shows the selected chain but does not expose a chain selector.
+
 use leptos::prelude::*;
 use leptos::task::spawn_local;
+use leptos_router::hooks::use_navigate;
 use rustok_types::{SendPreviewDto, SendResponseDto, UnifiedBalance};
 use serde::Serialize;
 
 use crate::bridge::tauri_invoke;
+use crate::components::icons::IconCheck;
+use crate::components::{DarkShell, PrimaryButton};
+use crate::tokens::{self as t, rw_radius, rw_type};
 
 #[derive(Serialize)]
 struct EmptyArgs {}
@@ -14,65 +24,72 @@ struct SendArgs {
     amount: String,
 }
 
+#[derive(Clone, Copy, PartialEq)]
+enum Step {
+    Input,
+    Preview,
+    Result,
+}
+
 #[component]
 pub fn SendPage() -> impl IntoView {
-    // Step: 0 = input, 1 = preview, 2 = result
-    let (step, set_step) = signal(0u8);
+    let navigate = use_navigate();
+    let go_back = {
+        let navigate = navigate.clone();
+        Callback::new(move |()| navigate("/", Default::default()))
+    };
+    let go_home = {
+        let navigate = navigate.clone();
+        Callback::new(move |()| navigate("/", Default::default()))
+    };
 
-    // Input fields
-    let (to_addr, set_to_addr) = signal(String::new());
-    let (amount, set_amount) = signal(String::new());
+    let step = RwSignal::new(Step::Input);
+    let to_addr = RwSignal::new(String::new());
+    let amount = RwSignal::new(String::new());
+    let available = RwSignal::new(String::new());
+    let preview = RwSignal::new(None::<SendPreviewDto>);
+    let result = RwSignal::new(None::<SendResponseDto>);
+    let error = RwSignal::new(None::<String>);
+    let loading = RwSignal::new(false);
 
-    // Available balance (fetched on mount)
-    let (available, set_available) = signal(String::new());
-
-    // Preview data
-    let (preview, set_preview) = signal(None::<SendPreviewDto>);
-
-    // Result data
-    let (result, set_result) = signal(None::<SendResponseDto>);
-
-    // State
-    let (error, set_error) = signal(None::<String>);
-    let (loading, set_loading) = signal(false);
-
-    // Fetch available balance on mount.
     spawn_local(async move {
         if let Ok(b) = tauri_invoke::<_, UnifiedBalance>("get_wallet_balance", &EmptyArgs {}).await
         {
-            set_available.set(b.approximate_total_formatted);
+            available.set(b.approximate_total_formatted);
         }
     });
 
-    // Set amount to a percentage of balance.
+    let valid = Signal::derive(move || {
+        let a = to_addr.get();
+        let a = a.trim();
+        let addr_ok = a.starts_with("0x") && a.len() == 42;
+        let amt_ok = amount.get().parse::<f64>().ok().is_some_and(|v| v > 0.0);
+        addr_ok && amt_ok
+    });
+
     let set_preset = move |pct: f64| {
-        move |_| {
-            let avail = available.get();
-            // Parse approximate total (e.g., "~2.5 ETH" → "2.5")
-            let num_str = avail
-                .trim_start_matches('~')
-                .trim_end_matches(" ETH")
-                .trim();
-            if let Ok(val) = num_str.parse::<f64>() {
-                let result = val * pct;
-                // Format with up to 6 decimals, trim trailing zeros.
-                let formatted = format!("{result:.6}");
-                let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
-                set_amount.set(trimmed.to_string());
-            }
+        let avail = available.get();
+        let num = avail
+            .trim_start_matches('~')
+            .trim_end_matches(" ETH")
+            .trim();
+        if let Ok(val) = num.parse::<f64>() {
+            let v = val * pct;
+            let formatted = format!("{v:.6}");
+            let trimmed = formatted.trim_end_matches('0').trim_end_matches('.');
+            amount.set(trimmed.to_string());
         }
     };
 
-    // Step 0 → 1: Preview
-    let do_preview = move |_| {
-        let to_val = to_addr.get();
+    let do_preview = Callback::new(move |()| {
+        let to_val = to_addr.get().trim().to_string();
         let amt_val = amount.get();
         if to_val.is_empty() || amt_val.is_empty() {
-            set_error.set(Some("Enter address and amount".into()));
+            error.set(Some("Enter address and amount".into()));
             return;
         }
-        set_loading.set(true);
-        set_error.set(None);
+        loading.set(true);
+        error.set(None);
 
         spawn_local(async move {
             match tauri_invoke::<_, SendPreviewDto>(
@@ -85,21 +102,20 @@ pub fn SendPage() -> impl IntoView {
             .await
             {
                 Ok(p) => {
-                    set_preview.set(Some(p));
-                    set_step.set(1);
+                    preview.set(Some(p));
+                    step.set(Step::Preview);
                 }
-                Err(e) => set_error.set(Some(e)),
+                Err(e) => error.set(Some(e)),
             }
-            set_loading.set(false);
+            loading.set(false);
         });
-    };
+    });
 
-    // Step 1 → 2: Send
-    let do_send = move |_| {
-        let to_val = to_addr.get();
+    let do_send = Callback::new(move |()| {
+        let to_val = to_addr.get().trim().to_string();
         let amt_val = amount.get();
-        set_loading.set(true);
-        set_error.set(None);
+        loading.set(true);
+        error.set(None);
 
         spawn_local(async move {
             match tauri_invoke::<_, SendResponseDto>(
@@ -112,160 +128,395 @@ pub fn SendPage() -> impl IntoView {
             .await
             {
                 Ok(r) => {
-                    set_result.set(Some(r));
-                    set_step.set(2);
+                    result.set(Some(r));
+                    step.set(Step::Result);
                 }
-                Err(e) => set_error.set(Some(e)),
+                Err(e) => error.set(Some(e)),
             }
-            set_loading.set(false);
+            loading.set(false);
         });
-    };
+    });
+
+    let go_edit = Callback::new(move |()| {
+        step.set(Step::Input);
+        error.set(None);
+    });
 
     view! {
-        <div>
-            <a href="/" class="back-link">"← Back"</a>
-            <h1 class="text-2xl font-bold mb-4">"Send ETH"</h1>
+        <DarkShell title="Send ETH".to_string() back=go_back>
+            <div style="flex:1;display:flex;flex-direction:column;padding:24px 20px 40px;\
+                        overflow-y:auto;">
 
-            // Error display
-            {move || error.get().map(|e| view! { <p class="text-red-400 mb-2">{e}</p> })}
+                {move || error.get().map(|e| view! {
+                    <div style=format!(
+                        "margin-bottom:12px;padding:10px 14px;border-radius:{r}px;\
+                         background:{bg};border:1px solid rgba(224,107,107,0.28);\
+                         color:{danger};font-family:{family};font-size:13px;",
+                        r = rw_radius::MD,
+                        bg = t::DANGER_BG,
+                        danger = t::DANGER,
+                        family = rw_type::FAMILY,
+                    )>{e}</div>
+                })}
 
-            {move || match step.get() {
-                // ─── Step 0: Input ──────────────────────────
-                0 => view! {
-                    <div>
-                        <p class="text-gray-400 text-sm mb-4">
-                            "Available: " {available.get()}
-                        </p>
+                {move || match step.get() {
+                    Step::Input => view! {
+                        <StepInput
+                            to_addr=to_addr
+                            amount=amount
+                            available=available
+                            valid=valid
+                            loading=loading
+                            on_continue=do_preview
+                            on_preset=Callback::new(move |pct: f64| set_preset(pct))
+                        />
+                    }.into_any(),
+                    Step::Preview => view! {
+                        <StepPreview
+                            preview=preview
+                            loading=loading
+                            on_send=do_send
+                            on_edit=go_edit
+                        />
+                    }.into_any(),
+                    Step::Result => view! {
+                        <StepResult
+                            result=result
+                            on_done=go_home
+                        />
+                    }.into_any(),
+                }}
+            </div>
+        </DarkShell>
+    }
+}
 
-                        <label class="text-gray-400 text-sm">"To"</label>
-                        <input
-                            class="border border-gray-600 rounded p-2 w-full bg-gray-800 text-white mb-4"
-                            placeholder="0x..."
-                            prop:value=move || to_addr.get()
-                            on:input:target=move |ev| set_to_addr.set(ev.target().value())
+#[component]
+fn StepInput(
+    to_addr: RwSignal<String>,
+    amount: RwSignal<String>,
+    available: RwSignal<String>,
+    valid: Signal<bool>,
+    loading: RwSignal<bool>,
+    #[prop(into)] on_continue: Callback<()>,
+    #[prop(into)] on_preset: Callback<f64>,
+) -> impl IntoView {
+    view! {
+        // Available balance
+        <div style=format!(
+            "font-family:{family};font-size:12px;color:{muted};\
+             font-weight:600;text-transform:uppercase;letter-spacing:0.4px;",
+            family = rw_type::FAMILY,
+            muted = t::NEUTRAL_MID,
+        )>
+            {move || format!("Available: {}", available.get())}
+        </div>
+
+        // Recipient
+        <div style="margin-top:16px;font-family:inherit;font-size:12px;">
+            <FieldCaption text="Recipient"/>
+        </div>
+        <input
+            style=format!(
+                "margin-top:8px;width:100%;padding:14px 16px;background:{bg};\
+                 border:1px solid {border};border-radius:{r}px;font-family:{mono};\
+                 font-size:14px;color:{text};outline:none;box-sizing:border-box;\
+                 caret-color:{accent};",
+                bg = t::SURFACE_DARK,
+                border = t::BORDER_DARK,
+                r = rw_radius::MD,
+                mono = rw_type::MONO,
+                text = t::TEXT_LIGHT,
+                accent = t::ACCENT,
+            )
+            placeholder="0x…"
+            on:input:target=move |ev| to_addr.set(ev.target().value())
+            prop:value=move || to_addr.get()
+        />
+
+        // Amount with Max
+        <div style="margin-top:20px;">
+            <FieldCaption text="Amount"/>
+        </div>
+        <div style=format!(
+            "margin-top:8px;display:flex;align-items:center;gap:10px;\
+             padding:14px 16px;background:{bg};border:1px solid {border};\
+             border-radius:{r}px;",
+            bg = t::SURFACE_DARK,
+            border = t::BORDER_DARK,
+            r = rw_radius::MD,
+        )>
+            <input
+                style=format!(
+                    "flex:1;border:none;background:transparent;\
+                     font-family:{family};font-size:24px;font-weight:700;\
+                     color:{text};outline:none;letter-spacing:-0.5px;min-width:0;\
+                     caret-color:{accent};",
+                    family = rw_type::FAMILY,
+                    text = t::TEXT_LIGHT,
+                    accent = t::ACCENT,
+                )
+                placeholder="0.00"
+                inputmode="decimal"
+                on:input:target=move |ev| amount.set(ev.target().value())
+                prop:value=move || amount.get()
+            />
+            <span style=format!(
+                "font-family:{family};font-size:14px;font-weight:600;color:{muted};",
+                family = rw_type::FAMILY,
+                muted = t::NEUTRAL_MID,
+            )>"ETH"</span>
+            <button
+                on:click=move |_| on_preset.run(1.0)
+                style=format!(
+                    "padding:6px 12px;background:rgba(131,135,195,0.18);\
+                     color:{accent};border:none;border-radius:8px;\
+                     font-family:{family};font-size:12px;font-weight:700;\
+                     letter-spacing:0.3px;cursor:pointer;text-transform:uppercase;",
+                    accent = t::ACCENT,
+                    family = rw_type::FAMILY,
+                )
+            >"Max"</button>
+        </div>
+
+        // Preset percentages
+        <div style="margin-top:10px;display:flex;gap:8px;">
+            {[(0.25, "25%"), (0.50, "50%"), (0.75, "75%")].into_iter().map(|(pct, label)| {
+                view! {
+                    <button
+                        on:click=move |_| on_preset.run(pct)
+                        style=format!(
+                            "flex:1;padding:10px 0;background:{bg};\
+                             color:{text};border:1px solid {border};\
+                             border-radius:{r}px;font-family:{family};font-size:13px;\
+                             font-weight:600;cursor:pointer;",
+                            bg = t::SURFACE_DARK,
+                            text = t::TEXT_LIGHT,
+                            border = t::BORDER_DARK,
+                            r = rw_radius::MD,
+                            family = rw_type::FAMILY,
+                        )
+                    >{label}</button>
+                }
+            }).collect_view()}
+        </div>
+
+        <div style="flex:1;min-height:20px;"/>
+
+        <div style="margin-top:24px;">
+            <PrimaryButton
+                on_click=on_continue
+                disabled=Signal::derive(move || !valid.get() || loading.get())
+            >
+                {move || if loading.get() { "Checking…" } else { "Continue" }}
+            </PrimaryButton>
+        </div>
+    }
+}
+
+#[component]
+fn StepPreview(
+    preview: RwSignal<Option<SendPreviewDto>>,
+    loading: RwSignal<bool>,
+    #[prop(into)] on_send: Callback<()>,
+    #[prop(into)] on_edit: Callback<()>,
+) -> impl IntoView {
+    view! {
+        {move || match preview.get() {
+            None => view! {
+                <p style=format!(
+                    "color:{muted};font-family:{family};font-size:14px;",
+                    muted = t::NEUTRAL_MID,
+                    family = rw_type::FAMILY,
+                )>"No preview data"</p>
+            }.into_any(),
+            Some(p) => {
+                let (action_color, action_bg) = match p.action.as_str() {
+                    "allow" => (t::SUCCESS, t::SUCCESS_BG),
+                    "warn" => (t::WARN, t::WARN_BG),
+                    _ => (t::DANGER, t::DANGER_BG),
+                };
+                let is_blocked = p.action == "block";
+                let action_upper = p.action.to_uppercase();
+
+                view! {
+                    <div style=format!(
+                        "padding:16px;background:{bg};border:1px solid {border};\
+                         border-radius:{r}px;display:flex;flex-direction:column;gap:12px;",
+                        bg = t::SURFACE_DARK,
+                        border = t::BORDER_DARK,
+                        r = rw_radius::LG,
+                    )>
+                        <PreviewRow label="To" value=p.to_short.clone() mono=true/>
+                        <PreviewRow label="Amount" value=p.amount_formatted.clone() mono=false/>
+                        <PreviewRow label="Network" value=p.chain_name.clone() mono=false/>
+                        <PreviewRow
+                            label="Gas fee"
+                            value=format!("{} ETH", p.gas_cost_formatted)
+                            mono=false
                         />
 
-                        <label class="text-gray-400 text-sm">"Amount (ETH)"</label>
-                        <input
-                            type="number"
-                            step="0.0001"
-                            class="border border-gray-600 rounded p-2 w-full bg-gray-800 text-white"
-                            placeholder="0.0"
-                            prop:value=move || amount.get()
-                            on:input:target=move |ev| set_amount.set(ev.target().value())
-                        />
-
-                        <div class="preset-row">
-                            <button class="preset-btn" on:click=set_preset(0.25)>"25%"</button>
-                            <button class="preset-btn" on:click=set_preset(0.5)>"50%"</button>
-                            <button class="preset-btn" on:click=set_preset(0.75)>"75%"</button>
-                            <button class="preset-btn" on:click=set_preset(1.0)>"Max"</button>
+                        // Security verdict
+                        <div style="display:flex;align-items:center;justify-content:space-between;\
+                                    padding-top:12px;border-top:1px solid rgba(255,255,255,0.06);">
+                            <span style=format!(
+                                "font-family:{family};font-size:13px;color:{muted};\
+                                 font-weight:500;",
+                                family = rw_type::FAMILY,
+                                muted = t::NEUTRAL_MID,
+                            )>"Security"</span>
+                            <span style=format!(
+                                "font-family:{family};font-size:12px;font-weight:700;\
+                                 padding:4px 10px;background:{bg};color:{color};\
+                                 border-radius:999px;letter-spacing:0.3px;",
+                                family = rw_type::FAMILY,
+                                bg = action_bg,
+                                color = action_color,
+                            )>
+                                {format!("{action_upper} · {}/100", p.risk_score)}
+                            </span>
                         </div>
-
-                        <button
-                            class="mt-4 bg-indigo-600 px-4 py-3 rounded w-full hover:bg-indigo-700"
-                            on:click=do_preview
-                            disabled=move || loading.get()
-                        >
-                            {move || if loading.get() { "Checking..." } else { "Continue" }}
-                        </button>
                     </div>
-                }.into_any(),
 
-                // ─── Step 1: Preview ────────────────────────
-                1 => {
-                    let p = preview.get();
-                    match p {
-                        Some(p) => {
-                            let action_color = match p.action.as_str() {
-                                "allow" => "text-green-400",
-                                "warn" => "text-yellow-400",
-                                _ => "text-red-400",
-                            };
-                            let is_blocked = p.action == "block";
+                    <div style="flex:1;min-height:20px;"/>
 
-                            view! {
-                                <div>
-                                    <div class="preview-card">
-                                        <div class="preview-row">
-                                            <span class="label">"To"</span>
-                                            <span class="font-mono">{p.to_short.clone()}</span>
-                                        </div>
-                                        <div class="preview-row">
-                                            <span class="label">"Amount"</span>
-                                            <span>{p.amount_formatted.clone()}</span>
-                                        </div>
-                                        <div class="preview-row">
-                                            <span class="label">"Network"</span>
-                                            <span>{p.chain_name.clone()}</span>
-                                        </div>
-                                        <div class="preview-row">
-                                            <span class="label">"Gas fee"</span>
-                                            <span>{p.gas_cost_formatted.clone()} " ETH"</span>
-                                        </div>
-                                        <div class="preview-row">
-                                            <span class="label">"Security"</span>
-                                            <span class={action_color}>
-                                                {p.action.to_uppercase()} " (" {p.risk_score.to_string()} "/100)"
-                                            </span>
-                                        </div>
-                                    </div>
+                    <PrimaryButton
+                        on_click=on_send
+                        disabled=Signal::derive(move || loading.get() || is_blocked)
+                    >
+                        {move || if loading.get() {
+                            "Sending…"
+                        } else if is_blocked {
+                            "Blocked by txguard"
+                        } else {
+                            "Send ETH"
+                        }}
+                    </PrimaryButton>
 
-                                    <button
-                                        class="bg-indigo-600 px-4 py-3 rounded w-full hover:bg-indigo-700"
-                                        on:click=do_send
-                                        disabled=move || loading.get() || is_blocked
-                                    >
-                                        {move || if loading.get() { "Sending..." } else { "Send ETH" }}
-                                    </button>
+                    <button
+                        on:click=move |_| on_edit.run(())
+                        style=format!(
+                            "margin-top:12px;background:transparent;border:none;\
+                             color:{accent};font-family:{family};font-size:14px;\
+                             font-weight:500;cursor:pointer;width:100%;text-align:center;",
+                            accent = t::ACCENT,
+                            family = rw_type::FAMILY,
+                        )
+                    >"← Edit"</button>
+                }.into_any()
+            }
+        }}
+    }
+}
 
-                                    <button
-                                        class="mt-2 text-gray-400 text-sm w-full text-center"
-                                        on:click=move |_| set_step.set(0)
-                                    >
-                                        "← Edit"
-                                    </button>
-                                </div>
-                            }.into_any()
-                        }
-                        None => view! { <p>"Error: no preview data"</p> }.into_any(),
-                    }
-                }
+#[component]
+fn StepResult(
+    result: RwSignal<Option<SendResponseDto>>,
+    #[prop(into)] on_done: Callback<()>,
+) -> impl IntoView {
+    view! {
+        {move || match result.get() {
+            Some(r) => view! {
+                <div style="display:flex;flex-direction:column;align-items:center;\
+                            text-align:center;padding-top:40px;">
+                    <div style=format!(
+                        "width:80px;height:80px;border-radius:50%;\
+                         background:{bg};border:1px solid rgba(74,179,123,0.35);\
+                         display:flex;align-items:center;justify-content:center;",
+                        bg = t::SUCCESS_BG,
+                    )>
+                        <IconCheck size=42 stroke_width=2.5 color=t::SUCCESS.to_string()/>
+                    </div>
 
-                // ─── Step 2: Result ─────────────────────────
-                _ => {
-                    let r = result.get();
-                    match r {
-                        Some(r) => view! {
-                            <div class="success-screen">
-                                <p class="success-check">"✓"</p>
-                                <p class="text-2xl font-bold mb-2">"Sent!"</p>
-                                <p class="text-gray-300 mb-4">{r.amount_formatted}</p>
-                                <p class="text-gray-400 text-sm mb-2">"via " {r.chain_name}</p>
-                                <p class="font-mono text-sm text-gray-400 break-all">{r.tx_hash}</p>
+                    <div style=format!(
+                        "margin-top:20px;font-family:{family};font-size:24px;\
+                         color:{white};font-weight:700;letter-spacing:-0.3px;",
+                        family = rw_type::FAMILY,
+                        white = t::TEXT_LIGHT,
+                    )>"Sent!"</div>
 
-                                <a
-                                    href="/"
-                                    class="mt-6 inline-block bg-indigo-600 px-4 py-2 rounded hover:bg-indigo-700"
-                                >
-                                    "Done"
-                                </a>
-                            </div>
-                        }.into_any(),
-                        None => view! {
-                            <div class="text-center mt-6">
-                                <p class="text-red-400">"Transaction failed"</p>
-                                <button
-                                    class="mt-4 text-blue-400"
-                                    on:click=move |_| set_step.set(0)
-                                >
-                                    "Try again"
-                                </button>
-                            </div>
-                        }.into_any(),
-                    }
-                }
-            }}
+                    <div style=format!(
+                        "margin-top:8px;font-family:{family};font-size:16px;\
+                         color:{text};font-weight:500;",
+                        family = rw_type::FAMILY,
+                        text = t::TEXT_LIGHT,
+                    )>{r.amount_formatted.clone()}</div>
+
+                    <div style=format!(
+                        "margin-top:4px;font-family:{family};font-size:13px;\
+                         color:{muted};font-weight:500;",
+                        family = rw_type::FAMILY,
+                        muted = t::NEUTRAL_MID,
+                    )>{format!("via {}", r.chain_name)}</div>
+
+                    <div style=format!(
+                        "margin-top:16px;padding:10px 14px;background:{bg};\
+                         border:1px solid {border};border-radius:{r}px;\
+                         font-family:{mono};font-size:12px;color:{text};\
+                         word-break:break-all;max-width:100%;",
+                        bg = t::SURFACE_DARK,
+                        border = t::BORDER_DARK,
+                        r = rw_radius::MD,
+                        mono = rw_type::MONO,
+                        text = t::TEXT_LIGHT,
+                    )>{r.tx_hash.clone()}</div>
+                </div>
+
+                <div style="flex:1;min-height:20px;"/>
+
+                <PrimaryButton on_click=on_done>"Done"</PrimaryButton>
+            }.into_any(),
+            None => view! {
+                <div style="text-align:center;margin-top:32px;">
+                    <p style=format!(
+                        "color:{danger};font-family:{family};font-size:14px;",
+                        danger = t::DANGER,
+                        family = rw_type::FAMILY,
+                    )>"Transaction failed"</p>
+                    <button
+                        on:click=move |_| on_done.run(())
+                        style=format!(
+                            "margin-top:16px;background:transparent;border:none;\
+                             color:{accent};font-family:{family};font-size:14px;\
+                             font-weight:500;cursor:pointer;",
+                            accent = t::ACCENT,
+                            family = rw_type::FAMILY,
+                        )
+                    >"Back"</button>
+                </div>
+            }.into_any(),
+        }}
+    }
+}
+
+#[component]
+fn FieldCaption(text: &'static str) -> impl IntoView {
+    view! {
+        <div style=format!(
+            "font-family:{family};font-size:12px;color:{muted};\
+             font-weight:600;text-transform:uppercase;letter-spacing:0.4px;",
+            family = rw_type::FAMILY,
+            muted = t::NEUTRAL_MID,
+        )>{text}</div>
+    }
+}
+
+#[component]
+fn PreviewRow(label: &'static str, value: String, mono: bool) -> impl IntoView {
+    let value_font = if mono { rw_type::MONO } else { rw_type::FAMILY };
+    view! {
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+            <span style=format!(
+                "font-family:{family};font-size:13px;color:{muted};font-weight:500;",
+                family = rw_type::FAMILY,
+                muted = t::NEUTRAL_MID,
+            )>{label}</span>
+            <span style=format!(
+                "font-family:{font};font-size:13px;color:{text};font-weight:600;\
+                 text-align:right;word-break:break-all;",
+                font = value_font,
+                text = t::TEXT_LIGHT,
+            )>{value}</span>
         </div>
     }
 }
