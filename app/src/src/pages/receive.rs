@@ -51,12 +51,13 @@ pub fn ReceivePage() -> impl IntoView {
     });
 
     let on_copy = move |_| {
-        if let Some(addr) = address.get() {
-            if copy_to_clipboard(&addr) {
+        let Some(addr) = address.get() else { return };
+        spawn_local(async move {
+            if copy_to_clipboard(&addr).await {
                 copied.set(true);
                 gloo_timers::callback::Timeout::new(1_600, move || copied.set(false)).forget();
             }
-        }
+        });
     };
 
     view! {

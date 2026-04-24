@@ -4,6 +4,7 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "biometric:default"
+    "biometric:default",
+    "clipboard-manager:allow-write-text"
   ]
 }

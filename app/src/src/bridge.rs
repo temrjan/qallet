@@ -9,36 +9,22 @@ extern "C" {
     async fn invoke(cmd: &str, args: JsValue) -> Result<JsValue, JsValue>;
 }
 
-/// Copy text to the system clipboard.
+/// Copy text to the system clipboard via `tauri-plugin-clipboard-manager`.
 ///
-/// Prefer the async Clipboard API (`navigator.clipboard.writeText`) — works
-/// reliably on modern iOS WKWebView and Android WebView. Falls back to
-/// `document.execCommand('copy')` via a hidden textarea for older runtimes.
-pub fn copy_to_clipboard(text: &str) -> bool {
-    let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
-    let code = format!(
-        r#"(function(){{
-            try {{
-                if (navigator.clipboard && navigator.clipboard.writeText) {{
-                    navigator.clipboard.writeText("{escaped}");
-                    return true;
-                }}
-            }} catch (_) {{}}
-            var e = document.createElement('textarea');
-            e.value = "{escaped}";
-            e.setAttribute('readonly', '');
-            e.style.position = 'absolute';
-            e.style.left = '-9999px';
-            document.body.appendChild(e);
-            e.select();
-            var r = document.execCommand('copy');
-            document.body.removeChild(e);
-            return r;
-        }})()"#
-    );
-    js_sys::eval(&code)
-        .map(|v| v.as_bool().unwrap_or(false))
-        .unwrap_or(false)
+/// The plugin handles platform quirks (Android WebView requires a native
+/// bridge; iOS WKWebView and desktop work too). Returns `true` on success.
+///
+/// Previously used `navigator.clipboard.writeText` via `js_sys::eval`, which
+/// failed on Android release builds where the WebView refused the API
+/// without a secure context.
+pub async fn copy_to_clipboard(text: &str) -> bool {
+    #[derive(Serialize)]
+    struct WriteTextArgs<'a> {
+        text: &'a str,
+    }
+    tauri_invoke::<_, ()>("plugin:clipboard-manager|write_text", &WriteTextArgs { text })
+        .await
+        .is_ok()
 }
 
 /// Type-safe invoke wrapper for calling tauri::command from WASM.
