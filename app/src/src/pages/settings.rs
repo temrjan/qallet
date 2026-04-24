@@ -1,3 +1,9 @@
+//! Settings screen — grouped list of wallet preferences + wallet actions.
+//!
+//! Scope intentionally narrow: only preferences that map to existing
+//! rustok-core commands land here. Theme / currency / language / recovery
+//! phrase / remove-wallet are deferred to dedicated PRs.
+
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::hooks::use_navigate;
@@ -5,6 +11,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::app::WalletState;
 use crate::bridge::tauri_invoke;
+use crate::components::icons::{IconChevronRight, IconFaceId, IconLock, IconPlus};
+use crate::tokens::{self as t, rw_radius, rw_type};
 
 #[derive(Serialize)]
 struct EmptyArgs {}
@@ -21,11 +29,42 @@ pub fn SettingsPage() -> impl IntoView {
         .expect("WalletState context missing — must be provided in App");
     let navigate = use_navigate();
 
-    let (address, set_address) = signal(None::<String>);
-    let (bio_available, set_bio_available) = signal(false);
-    let (bio_enabled, set_bio_enabled) = signal(false);
+    let address = RwSignal::new(None::<String>);
+    let bio_available = RwSignal::new(false);
+    let bio_enabled = RwSignal::new(false);
 
-    // Lock: clear in-memory wallet on backend, drop to Locked state, redirect.
+    spawn_local(async move {
+        if let Ok(Some(addr)) =
+            tauri_invoke::<_, Option<String>>("get_current_address", &EmptyArgs {}).await
+        {
+            address.set(Some(addr));
+        }
+        if let Ok(status) =
+            tauri_invoke::<_, BiometricStatus>("plugin:biometric|status", &EmptyArgs {}).await
+        {
+            bio_available.set(status.is_available);
+        }
+        if let Ok(enabled) = tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await {
+            bio_enabled.set(enabled);
+        }
+    });
+
+    let toggle_bio = move || {
+        if bio_enabled.get_untracked() {
+            spawn_local(async move {
+                if tauri_invoke::<_, ()>("disable_biometric_unlock", &EmptyArgs {})
+                    .await
+                    .is_ok()
+                {
+                    bio_enabled.set(false);
+                }
+            });
+        }
+        // Enabling requires a password — surfaced via the next Unlock screen,
+        // not toggled inline. No-op here; the backend sets the flag after a
+        // successful `enable_biometric_unlock(password)` call during unlock.
+    };
+
     let lock = {
         let navigate = navigate.clone();
         move |_| {
@@ -38,86 +77,274 @@ pub fn SettingsPage() -> impl IntoView {
         }
     };
 
-    // Fetch state on mount.
-    spawn_local(async move {
-        if let Ok(Some(addr)) =
-            tauri_invoke::<_, Option<String>>("get_current_address", &EmptyArgs {}).await
-        {
-            set_address.set(Some(addr));
-        }
-        if let Ok(status) =
-            tauri_invoke::<_, BiometricStatus>("plugin:biometric|status", &EmptyArgs {}).await
-        {
-            set_bio_available.set(status.is_available);
-        }
-        if let Ok(enabled) = tauri_invoke::<_, bool>("is_biometric_enabled", &EmptyArgs {}).await {
-            set_bio_enabled.set(enabled);
-        }
-    });
-
-    let disable_bio = move |_| {
-        spawn_local(async move {
-            if tauri_invoke::<_, ()>("disable_biometric_unlock", &EmptyArgs {})
-                .await
-                .is_ok()
-            {
-                set_bio_enabled.set(false);
-            }
-        });
+    let go_welcome = {
+        let navigate = navigate.clone();
+        move |_| navigate("/welcome", Default::default())
     };
 
     view! {
         <div>
-            <h1 class="text-2xl font-bold mb-4">"Settings"</h1>
-
-            // Wallet section.
-            <div class="mb-4">
-                <p class="text-gray-400 text-sm mb-2">"Wallet"</p>
-                {move || address.get().map(|addr| view! {
-                    <p class="font-mono text-sm break-all bg-gray-800 p-4 rounded">{addr}</p>
-                })}
-                {move || address.get().is_none().then(|| view! {
-                    <p class="text-gray-400">"No wallet loaded"</p>
-                })}
+            // ── Header ──────────────────────────────────────
+            <div style="padding:8px 4px 16px;">
+                <div style=format!(
+                    "font-family:{family};font-size:13px;color:{muted};font-weight:500;",
+                    family = rw_type::FAMILY,
+                    muted = t::NEUTRAL_MID,
+                )>"Preferences"</div>
+                <div style=format!(
+                    "margin-top:4px;font-family:{family};font-size:28px;\
+                     color:{white};font-weight:700;letter-spacing:-0.5px;",
+                    family = rw_type::FAMILY,
+                    white = t::TEXT_LIGHT,
+                )>"Settings"</div>
             </div>
 
-            // Biometric section (only if device supports it).
+            // ── Wallet card ─────────────────────────────────
+            <Section>
+                <WalletHeader addr=address/>
+            </Section>
+
+            // ── Security ────────────────────────────────────
             {move || bio_available.get().then(|| view! {
-                <div class="mb-4">
-                    <p class="text-gray-400 text-sm mb-2">"Security"</p>
-                    <div class="bg-gray-800 p-4 rounded">
-                        <div class="flex" style="justify-content: space-between; align-items: center;">
-                            <span>"Face ID"</span>
-                            {if bio_enabled.get() {
-                                view! {
-                                    <button
-                                        class="text-red-400 text-sm"
-                                        on:click=disable_bio
-                                    >
-                                        "Disable"
-                                    </button>
-                                }.into_any()
-                            } else {
-                                view! {
-                                    <span class="text-gray-400 text-sm">"Enable on next unlock"</span>
-                                }.into_any()
-                            }}
-                        </div>
-                    </div>
-                </div>
+                <SectionTitle label="Security"/>
+                <Section>
+                    <ToggleRow
+                        label="Face ID"
+                        caption=move || if bio_enabled.get() {
+                            "Enabled — unlock with biometrics"
+                        } else {
+                            "Enable on next unlock"
+                        }
+                        icon=IconKind::Face
+                        on=bio_enabled
+                        on_click=Callback::new(move |()| toggle_bio())
+                    />
+                </Section>
             })}
 
-            // Actions.
-            <div class="mt-4">
-                <a href="/wallet/create" class="block text-blue-400 text-sm mb-4">"Create New Wallet"</a>
-                <button on:click=lock class="block text-blue-400 text-sm text-left w-full">
-                    "Lock Wallet"
-                </button>
-            </div>
+            // ── Actions ─────────────────────────────────────
+            <SectionTitle label="Actions"/>
+            <Section>
+                <NavRow
+                    label="Create new wallet"
+                    icon=IconKind::Plus
+                    on_click=Callback::new(go_welcome)
+                />
+                <Divider/>
+                <NavRow
+                    label="Lock wallet"
+                    icon=IconKind::Lock
+                    on_click=Callback::new(lock)
+                />
+            </Section>
 
-            // About.
-            <div class="mt-6">
-                <p class="text-gray-400 text-sm">"Rustok v0.1.0 — Rust Ethereum Wallet"</p>
+            // ── Footer ──────────────────────────────────────
+            <div style=format!(
+                "margin-top:24px;text-align:center;font-family:{family};\
+                 font-size:11px;color:{soft};font-weight:500;",
+                family = rw_type::FAMILY,
+                soft = t::NEUTRAL_SOFT,
+            )>
+                "Rustok Wallet · v0.1.2"
+            </div>
+        </div>
+    }
+}
+
+// ─── Primitives ─────────────────────────────────────────────────
+
+#[component]
+fn SectionTitle(label: &'static str) -> impl IntoView {
+    view! {
+        <div style=format!(
+            "margin:24px 4px 8px;font-family:{family};font-size:11px;\
+             color:{muted};font-weight:600;text-transform:uppercase;\
+             letter-spacing:0.4px;",
+            family = rw_type::FAMILY,
+            muted = t::NEUTRAL_MID,
+        )>{label}</div>
+    }
+}
+
+#[component]
+fn Section(children: Children) -> impl IntoView {
+    view! {
+        <div style=format!(
+            "background:{surface};border:1px solid {border};\
+             border-radius:{r}px;overflow:hidden;",
+            surface = t::SURFACE_DARK,
+            border = t::BORDER_DARK,
+            r = rw_radius::LG,
+        )>
+            {children()}
+        </div>
+    }
+}
+
+#[component]
+fn Divider() -> impl IntoView {
+    view! {
+        <div style=format!(
+            "height:1px;background:{border};margin-left:64px;",
+            border = t::BORDER_DARK,
+        )/>
+    }
+}
+
+#[derive(Clone, Copy)]
+enum IconKind {
+    Face,
+    Lock,
+    Plus,
+}
+
+#[component]
+fn RowIcon(kind: IconKind) -> impl IntoView {
+    let color = t::ACCENT.to_string();
+    let bg = "rgba(131,135,195,0.14)";
+    let icon = match kind {
+        IconKind::Face => view! { <IconFaceId size=18 stroke_width=2.0 color=color/> }.into_any(),
+        IconKind::Lock => view! { <IconLock size=18 stroke_width=2.0 color=color/> }.into_any(),
+        IconKind::Plus => view! { <IconPlus size=18 stroke_width=2.0 color=color/> }.into_any(),
+    };
+    view! {
+        <div style=format!(
+            "width:34px;height:34px;border-radius:10px;background:{bg};\
+             display:flex;align-items:center;justify-content:center;flex-shrink:0;"
+        )>{icon}</div>
+    }
+}
+
+#[component]
+fn NavRow(
+    label: &'static str,
+    icon: IconKind,
+    #[prop(into)] on_click: Callback<()>,
+) -> impl IntoView {
+    view! {
+        <button
+            on:click=move |_| on_click.run(())
+            style="width:100%;display:flex;align-items:center;gap:14px;\
+                   padding:14px 16px;background:transparent;border:none;cursor:pointer;"
+        >
+            <RowIcon kind=icon/>
+            <span style=format!(
+                "flex:1;text-align:left;font-family:{family};font-size:14px;\
+                 color:{white};font-weight:500;letter-spacing:-0.1px;",
+                family = rw_type::FAMILY,
+                white = t::TEXT_LIGHT,
+            )>{label}</span>
+            <IconChevronRight size=16 stroke_width=2.0 color=t::NEUTRAL_SOFT.to_string()/>
+        </button>
+    }
+}
+
+#[component]
+fn ToggleRow<C>(
+    label: &'static str,
+    caption: C,
+    icon: IconKind,
+    on: RwSignal<bool>,
+    #[prop(into)] on_click: Callback<()>,
+) -> impl IntoView
+where
+    C: Fn() -> &'static str + Send + Sync + 'static,
+{
+    view! {
+        <button
+            on:click=move |_| on_click.run(())
+            style="width:100%;display:flex;align-items:center;gap:14px;\
+                   padding:14px 16px;background:transparent;border:none;cursor:pointer;"
+        >
+            <RowIcon kind=icon/>
+            <div style="flex:1;min-width:0;text-align:left;">
+                <div style=format!(
+                    "font-family:{family};font-size:14px;color:{white};\
+                     font-weight:500;letter-spacing:-0.1px;",
+                    family = rw_type::FAMILY,
+                    white = t::TEXT_LIGHT,
+                )>{label}</div>
+                <div style=format!(
+                    "margin-top:2px;font-family:{family};font-size:12px;\
+                     color:{muted};font-weight:500;",
+                    family = rw_type::FAMILY,
+                    muted = t::NEUTRAL_MID,
+                )>{caption}</div>
+            </div>
+            <Switch on=on/>
+        </button>
+    }
+}
+
+#[component]
+fn Switch(on: RwSignal<bool>) -> impl IntoView {
+    let track_style = move || {
+        let is_on = on.get();
+        let bg = if is_on {
+            t::ACCENT.to_string()
+        } else {
+            t::BORDER_DARK.to_string()
+        };
+        format!(
+            "position:relative;width:42px;height:24px;border-radius:999px;\
+             background:{bg};transition:background 0.18s;flex-shrink:0;"
+        )
+    };
+    let thumb_style = move || {
+        let tx = if on.get() { 20 } else { 2 };
+        format!(
+            "position:absolute;top:2px;left:0;width:20px;height:20px;\
+             border-radius:50%;background:#fff;transform:translateX({tx}px);\
+             transition:transform 0.18s;box-shadow:0 2px 4px rgba(10,17,35,0.28);"
+        )
+    };
+    view! {
+        <div style=track_style>
+            <div style=thumb_style/>
+        </div>
+    }
+}
+
+#[component]
+fn WalletHeader(addr: RwSignal<Option<String>>) -> impl IntoView {
+    let short = move || {
+        addr.get()
+            .map(|a| {
+                if a.len() > 14 {
+                    format!("{}…{}", &a[..6], &a[a.len() - 4..])
+                } else {
+                    a
+                }
+            })
+            .unwrap_or_else(|| "No wallet loaded".to_string())
+    };
+
+    view! {
+        <div style="display:flex;align-items:center;gap:14px;padding:16px;">
+            <div style=format!(
+                "width:44px;height:44px;border-radius:14px;\
+                 background:linear-gradient(135deg, {a} 0%, {b} 100%);\
+                 display:flex;align-items:center;justify-content:center;\
+                 color:#fff;font-family:{family};font-size:16px;font-weight:700;\
+                 letter-spacing:-0.2px;box-shadow:0 2px 10px rgba(131,135,195,0.35);",
+                a = t::ACCENT,
+                b = t::ACCENT_DEEP,
+                family = rw_type::FAMILY,
+            )>"MW"</div>
+            <div style="flex:1;min-width:0;">
+                <div style=format!(
+                    "font-family:{family};font-size:14px;color:{white};\
+                     font-weight:600;letter-spacing:-0.1px;",
+                    family = rw_type::FAMILY,
+                    white = t::TEXT_LIGHT,
+                )>"Main wallet"</div>
+                <div style=format!(
+                    "margin-top:2px;font-family:{mono};font-size:12px;\
+                     color:{muted};font-weight:500;\
+                     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;",
+                    mono = rw_type::MONO,
+                    muted = t::NEUTRAL_MID,
+                )>{short}</div>
             </div>
         </div>
     }
