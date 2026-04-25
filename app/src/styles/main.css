@@ -8,6 +8,20 @@
 }
 .rw-shake { animation: rw-shake 0.4s; }
 
+/* ── Splash pulse dots ──────────────────────────────────────── */
+@keyframes rw-pulse {
+    0%, 100% { opacity: 0.25; transform: scale(0.85); }
+    50%      { opacity: 1;    transform: scale(1.1);  }
+}
+.rw-pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8387C3;
+    animation: rw-pulse 1.4s ease-in-out infinite;
+}
+
 /* Keypad button press tactile feedback */
 .rw-keypad-btn:active {
     background: rgba(131, 135, 195, 0.25) !important;

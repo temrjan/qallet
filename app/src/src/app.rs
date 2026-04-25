@@ -39,6 +39,17 @@ pub enum ThemeKind {
     Light,
 }
 
+/// Cold-start splash gate, provided once by `App` and consumed by
+/// `HomePage`. Goes `false` → `true` after a 1.4 s timer fires once
+/// per app lifetime; subsequent navigations back to `/` see it already
+/// `true` and skip the splash overlay (otherwise re-mounting Home from
+/// the tab bar would replay the splash every time).
+///
+/// Newtyped over `RwSignal<bool>` to avoid context-key collisions with
+/// other anonymous `RwSignal<bool>` providers added later.
+#[derive(Clone, Copy)]
+pub struct SplashDone(pub RwSignal<bool>);
+
 const STORAGE_KEY_THEME: &str = "rustok.theme";
 
 /// Read the persisted theme from `localStorage`. Falls back to `Dark`
@@ -72,6 +83,13 @@ pub fn App() -> impl IntoView {
     // WASM mount, so the initial paint matches the stored preference.
     let theme = RwSignal::new(load_theme());
     provide_context(theme);
+
+    // Cold-start splash gate — fires once per WASM bootstrap, then stays
+    // true for the rest of the app's life. HomePage reads it via context
+    // so re-mounts from tab navigation don't replay the splash.
+    let splash_done = RwSignal::new(false);
+    provide_context(SplashDone(splash_done));
+    gloo_timers::callback::Timeout::new(1400, move || splash_done.set(true)).forget();
 
     Effect::new(move |_| {
         let (attr, color) = match theme.get() {

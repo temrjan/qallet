@@ -6,6 +6,7 @@ pub mod receive;
 pub mod restore;
 pub mod send;
 pub mod settings;
+pub mod splash;
 pub mod unlock;
 pub mod wallet;
 pub mod welcome;

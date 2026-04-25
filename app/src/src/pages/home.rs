@@ -12,7 +12,8 @@ use serde::Serialize;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 
-use crate::app::WalletState;
+use super::splash::SplashView;
+use crate::app::{SplashDone, WalletState};
 use crate::bridge::{copy_to_clipboard, tauri_invoke};
 use crate::components::icons::{IconArrowDown, IconArrowUp, IconCheck, IconCopy, IconShield};
 use crate::tokens::{self as t, rw_radius, rw_type};
@@ -51,12 +52,26 @@ pub fn HomePage() -> impl IntoView {
     let loading = RwSignal::new(false);
     let copied = RwSignal::new(false);
 
+    // Cold-start splash gate — owned by App so re-mounting Home from
+    // tab navigation doesn't replay the splash. The nav guard below
+    // waits on `splash_done` so the splash plays in full even when
+    // the auth probe resolves to Locked / Uninit before the 1.4 s
+    // timer fires (otherwise the guard would navigate away during the
+    // splash and the brand frame would be a single flash).
+    let SplashDone(splash_done) = use_context::<SplashDone>()
+        .expect("SplashDone context missing — must be provided in App");
+
     // Guard: redirect to the appropriate page when the wallet is not unlocked.
     let nav_guard = navigate.clone();
-    Effect::new(move |_| match state.get() {
-        WalletState::Uninit => nav_guard("/welcome", Default::default()),
-        WalletState::Locked => nav_guard("/unlock", Default::default()),
-        WalletState::Loading | WalletState::Unlocked => {}
+    Effect::new(move |_| {
+        if !splash_done.get() {
+            return;
+        }
+        match state.get() {
+            WalletState::Uninit => nav_guard("/welcome", Default::default()),
+            WalletState::Locked => nav_guard("/unlock", Default::default()),
+            WalletState::Loading | WalletState::Unlocked => {}
+        }
     });
 
     // Auto-refresh balance every AUTO_REFRESH_MS while the tab is visible.
@@ -332,6 +347,12 @@ pub fn HomePage() -> impl IntoView {
                 </div>
             </div>
         </div>
+
+        // Cold-start brand splash; sits above everything via z-index.
+        // Drops once `splash_done` flips AND the auth probe resolved past
+        // `Loading`, so the user never sees a half-painted Home behind it.
+        {move || (!splash_done.get() || state.get() == WalletState::Loading)
+            .then(|| view! { <SplashView /> })}
     }
 }
 
