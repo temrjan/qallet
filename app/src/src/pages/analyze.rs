@@ -59,6 +59,11 @@ pub fn AnalyzePage() -> impl IntoView {
         });
     });
 
+    let on_rescan = Callback::new(move |()| {
+        result.set(None);
+        loading.set(false);
+    });
+
     let input_style = format!(
         "margin-top:8px;width:100%;padding:14px 16px;background:{bg};\
          border:1px solid {border};border-radius:{r}px;font-family:{mono};\
@@ -114,8 +119,8 @@ pub fn AnalyzePage() -> impl IntoView {
                 </div>
 
                 {move || result.get().map(|r| match r {
-                    Ok(resp) => view! { <ResultCard resp=resp/> }.into_any(),
-                    Err(e) => view! { <ErrorCard msg=e/> }.into_any(),
+                    Ok(resp) => view! { <ResultCard resp=resp on_rescan=on_rescan/> }.into_any(),
+                    Err(e) => view! { <ErrorCard msg=e on_rescan=on_rescan/> }.into_any(),
                 })}
             </div>
         </DarkShell>
@@ -135,7 +140,7 @@ fn FieldCaption(text: &'static str) -> impl IntoView {
 }
 
 #[component]
-fn ResultCard(resp: AnalysisResponse) -> impl IntoView {
+fn ResultCard(resp: AnalysisResponse, #[prop(into)] on_rescan: Callback<()>) -> impl IntoView {
     let action = resp.action.clone();
     let is_block = action == "block";
 
@@ -220,6 +225,17 @@ fn ResultCard(resp: AnalysisResponse) -> impl IntoView {
 
             // Coverage CTA — only when blocked (high risk)
             {is_block.then(|| view! { <NexusCta/> })}
+
+            <button
+                on:click=move |_| on_rescan.run(())
+                style=format!(
+                    "margin-top:16px;background:transparent;border:none;\
+                     color:{accent};font-family:{family};font-size:14px;\
+                     font-weight:500;cursor:pointer;width:100%;text-align:center;",
+                    accent = t::ACCENT,
+                    family = rw_type::FAMILY,
+                )
+            >"Scan Again"</button>
         </div>
     }
 }
@@ -266,7 +282,7 @@ fn NexusCta() -> impl IntoView {
 }
 
 #[component]
-fn ErrorCard(msg: String) -> impl IntoView {
+fn ErrorCard(msg: String, #[prop(into)] on_rescan: Callback<()>) -> impl IntoView {
     view! {
         <div style=format!(
             "margin-top:20px;padding:14px 16px;background:{bg};\
@@ -278,6 +294,16 @@ fn ErrorCard(msg: String) -> impl IntoView {
             danger = t::DANGER,
         )>
             "Failed to analyze: " {msg}
+            <button
+                on:click=move |_| on_rescan.run(())
+                style=format!(
+                    "margin-top:12px;display:block;background:transparent;border:none;\
+                     color:{accent};font-family:{family};font-size:14px;\
+                     font-weight:500;cursor:pointer;width:100%;text-align:center;",
+                    accent = t::ACCENT,
+                    family = rw_type::FAMILY,
+                )
+            >"Scan Again"</button>
         </div>
     }
 }
