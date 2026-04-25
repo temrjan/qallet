@@ -7,7 +7,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use leptos_router::hooks::use_navigate;
-use rustok_types::UnifiedBalance;
+use rustok_types::{TransactionHistoryDto, UnifiedBalance};
 use serde::Serialize;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
@@ -15,7 +15,9 @@ use wasm_bindgen::closure::Closure;
 use super::splash::SplashView;
 use crate::app::{SplashDone, WalletState};
 use crate::bridge::{copy_to_clipboard, tauri_invoke};
-use crate::components::icons::{IconArrowDown, IconArrowUp, IconCheck, IconCopy, IconShield};
+use crate::components::icons::{
+    IconArrowDown, IconArrowUp, IconCheck, IconChevronRight, IconCopy, IconShield, IconSwap,
+};
 use crate::tokens::{self as t, rw_radius, rw_type};
 
 /// Interval between automatic balance refreshes while the tab is visible.
@@ -51,6 +53,11 @@ pub fn HomePage() -> impl IntoView {
     let error = RwSignal::new(None::<String>);
     let loading = RwSignal::new(false);
     let copied = RwSignal::new(false);
+
+    // Recent transactions preview (shown between balance and Networks)
+    let history = RwSignal::new(None::<TransactionHistoryDto>);
+    let history_loading = RwSignal::new(false);
+    let history_error = RwSignal::new(None::<String>);
 
     // Cold-start splash gate — owned by App so re-mounting Home from
     // tab navigation doesn't replay the splash. The nav guard below
@@ -96,14 +103,16 @@ pub fn HomePage() -> impl IntoView {
     }
     closure.forget();
 
-    // Initial balance fetch when the wallet becomes Unlocked. Android TLS can
-    // race the first RPC call — one retry after 800 ms.
+    // Initial balance + history fetch when the wallet becomes Unlocked.
+    // Android TLS can race the first RPC call — one retry after 800 ms.
     Effect::new(move |_| {
         if state.get() != WalletState::Unlocked {
             return;
         }
         loading.set(true);
         error.set(None);
+        history_loading.set(true);
+        history_error.set(None);
 
         spawn_local(async move {
             if let Ok(Some(addr)) =
@@ -135,6 +144,16 @@ pub fn HomePage() -> impl IntoView {
                 Err(e) => error.set(Some(e)),
             }
             loading.set(false);
+        });
+
+        spawn_local(async move {
+            match tauri_invoke::<_, TransactionHistoryDto>("get_transaction_history", &EmptyArgs {})
+                .await
+            {
+                Ok(h) => history.set(Some(h)),
+                Err(e) => history_error.set(Some(e)),
+            }
+            history_loading.set(false);
         });
     });
 
@@ -281,6 +300,21 @@ pub fn HomePage() -> impl IntoView {
                 </div>
             </div>
 
+            // Recent transactions preview card
+            {move || {
+                // Silently hide if balance fetch failed — error already shown in hero card
+                if error.get().is_some() {
+                    return view! { <div/> }.into_any();
+                }
+                view! {
+                    <RecentCard
+                        loading=history_loading.get()
+                        history=history.get()
+                    />
+                }
+                .into_any()
+            }}
+
             // Networks list
             <div style="padding:28px 20px 8px;display:flex;align-items:center;\
                         justify-content:space-between;">
@@ -353,6 +387,224 @@ pub fn HomePage() -> impl IntoView {
         // `Loading`, so the user never sees a half-painted Home behind it.
         {move || (!splash_done.get() || state.get() == WalletState::Loading)
             .then(|| view! { <SplashView /> })}
+    }
+}
+
+/// Direction arrow kind for transaction rows.
+#[derive(Clone, Copy)]
+enum Arrow {
+    Up,
+    Down,
+    Swap,
+}
+
+/// Preview card for the 3 most recent transactions on the Home screen.
+/// Mirrors the row styling from `activity.rs` for visual consistency.
+#[component]
+fn RecentCard(loading: bool, history: Option<TransactionHistoryDto>) -> impl IntoView {
+    let navigate = use_navigate();
+    let activity_nav = move |_| navigate("/activity", Default::default());
+
+    view! {
+        <div style=format!(
+            "margin:24px 16px 0;background:{surface};border-radius:{r}px;\
+             border:1px solid {border};overflow:hidden;",
+            surface = t::css::SURFACE,
+            r = rw_radius::LG,
+            border = t::css::BORDER,
+        )>
+            // Header — navigates to full Activity page
+            <button
+                on:click=activity_nav
+                style="width:100%;background:transparent;border:none;\
+                       padding:14px 16px;cursor:pointer;display:flex;\
+                       align-items:center;justify-content:space-between;\
+                       text-align:left;"
+            >
+                <span style=format!(
+                    "font-family:{family};font-size:15px;color:{white};\
+                     font-weight:600;letter-spacing:-0.2px;",
+                    family = rw_type::FAMILY,
+                    white = t::css::TEXT,
+                )>"Recent"</span>
+                <IconChevronRight size=18 stroke_width=2.0 color=t::NEUTRAL_MID.to_string() />
+            </button>
+
+            <div style="padding:0 16px 16px;display:flex;flex-direction:column;gap:8px;">
+                {move || {
+                    if loading && history.is_none() {
+                        // Skeleton — 3 muted placeholder rows
+                        return (0..3)
+                            .map(|_| view! {
+                                <div style=format!(
+                                    "height:56px;background:{bg};border-radius:{r}px;",
+                                    bg = t::css::SURFACE_2,
+                                    r = rw_radius::MD,
+                                )/>
+                            })
+                            .collect_view()
+                            .into_any();
+                    }
+
+                    let Some(h) = history.as_ref() else {
+                        return view! { <div/> }.into_any();
+                    };
+
+                    if h.transactions.is_empty() {
+                        return view! {
+                            <div style=format!(
+                                "padding:12px 0;text-align:center;\
+                                 font-family:{family};font-size:14px;color:{muted};",
+                                family = rw_type::FAMILY,
+                                muted = t::NEUTRAL_MID,
+                            )>"No transactions yet"</div>
+                        }
+                        .into_any();
+                    }
+
+                    h.transactions.iter().take(3).cloned().collect::<Vec<_>>().into_iter().map(|tx| {
+                        let (kind_color, kind_bg, amount_color, arrow) =
+                            match tx.direction.as_str() {
+                                "sent" => (
+                                    t::DANGER,
+                                    "rgba(224,107,107,0.14)",
+                                    t::DANGER,
+                                    Arrow::Up,
+                                ),
+                                "received" => (
+                                    t::SUCCESS,
+                                    "rgba(74,179,123,0.14)",
+                                    t::SUCCESS,
+                                    Arrow::Down,
+                                ),
+                                _ => (
+                                    t::ACCENT,
+                                    "rgba(131,135,195,0.16)",
+                                    t::css::TEXT,
+                                    Arrow::Swap,
+                                ),
+                            };
+
+                        let addr_raw = match tx.direction.as_str() {
+                            "sent" => tx.to.clone(),
+                            _ => tx.from.clone(),
+                        };
+                        let short = if addr_raw.len() > 14 {
+                            format!("{}…{}", &addr_raw[..6], &addr_raw[addr_raw.len() - 4..])
+                        } else {
+                            addr_raw
+                        };
+                        let prefix = match tx.direction.as_str() {
+                            "sent" => "To",
+                            "received" => "From",
+                            _ => "Self",
+                        };
+                        let value = match tx.direction.as_str() {
+                            "sent" => format!("-{}", tx.value_formatted),
+                            "received" => format!("+{}", tx.value_formatted),
+                            _ => tx.value_formatted.clone(),
+                        };
+                        let url = tx.explorer_url.clone();
+                        let failed = tx.status == "failed";
+                        let row_opacity = if failed { 0.5 } else { 1.0 };
+                        let icon_color = kind_color.to_string();
+
+                        let icon = match arrow {
+                            Arrow::Up => view! {
+                                <IconArrowUp size=18 stroke_width=2.0 color=icon_color.clone() />
+                            }
+                            .into_any(),
+                            Arrow::Down => view! {
+                                <IconArrowDown size=18 stroke_width=2.0 color=icon_color.clone() />
+                            }
+                            .into_any(),
+                            Arrow::Swap => view! {
+                                <IconSwap size=18 stroke_width=2.0 color=icon_color.clone() />
+                            }
+                            .into_any(),
+                        };
+
+                        view! {
+                            <a
+                                href=url
+                                target="_blank"
+                                style=format!(
+                                    "display:flex;align-items:center;gap:14px;\
+                                     padding:12px 14px;background:{surface};\
+                                     border:1px solid {border};border-radius:{r}px;\
+                                     color:inherit;text-decoration:none;opacity:{opacity};",
+                                    surface = t::css::SURFACE_2,
+                                    border = t::css::BORDER,
+                                    r = rw_radius::LG,
+                                    opacity = row_opacity,
+                                )
+                            >
+                                <div style=format!(
+                                    "width:40px;height:40px;border-radius:12px;background:{bg};\
+                                     display:flex;align-items:center;justify-content:center;\
+                                     flex-shrink:0;",
+                                    bg = kind_bg,
+                                )>
+                                    {icon}
+                                </div>
+                                <div style="flex:1;min-width:0;">
+                                    <div style="display:flex;align-items:baseline;gap:8px;">
+                                        <span style=format!(
+                                            "font-family:{family};font-size:14px;color:{white};\
+                                             font-weight:600;letter-spacing:-0.2px;\
+                                             white-space:nowrap;overflow:hidden;\
+                                             text-overflow:ellipsis;",
+                                            family = rw_type::FAMILY,
+                                            white = t::css::TEXT,
+                                        )>
+                                            {format!("{prefix} {short}")}
+                                        </span>
+                                        <span style=format!(
+                                            "font-family:{family};font-size:11px;color:{muted};\
+                                             font-weight:500;flex-shrink:0;",
+                                            family = rw_type::FAMILY,
+                                            muted = t::NEUTRAL_MID,
+                                        )>
+                                            {tx.time_ago.clone()}
+                                        </span>
+                                    </div>
+                                    <div style=format!(
+                                        "margin-top:2px;font-family:{family};font-size:12px;\
+                                         color:{muted};font-weight:500;",
+                                        family = rw_type::FAMILY,
+                                        muted = t::NEUTRAL_MID,
+                                    )>
+                                        <span style=format!(
+                                            "padding:1px 6px;background:{surface2};\
+                                             color:{soft};border-radius:4px;font-size:11px;",
+                                            surface2 = t::css::SURFACE_2,
+                                            soft = t::TEXT_SOFT,
+                                        )>
+                                            {tx.chain_name.clone()}
+                                        </span>
+                                        {failed.then(|| view! {
+                                            <span style=format!("color:{danger};", danger = t::DANGER)>
+                                                " · Failed"
+                                            </span>
+                                        })}
+                                    </div>
+                                </div>
+                                <div style="text-align:right;flex-shrink:0;">
+                                    <div style=format!(
+                                        "font-family:{family};font-size:14px;color:{color};\
+                                         font-weight:600;letter-spacing:-0.2px;",
+                                        family = rw_type::FAMILY,
+                                        color = amount_color,
+                                    )>
+                                        {value}
+                                    </div>
+                                </div>
+                            </a>
+                        }
+                    }).collect_view().into_any()
+                }}
+            </div>
+        </div>
     }
 }
 
