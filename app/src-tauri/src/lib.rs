@@ -1,3 +1,5 @@
+#![deny(clippy::await_holding_lock)]
+
 mod commands;
 
 use commands::AppState;
