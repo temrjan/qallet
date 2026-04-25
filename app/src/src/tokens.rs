@@ -38,6 +38,10 @@ pub const ACCENT_SOFT: &str = "#9EA3D1";
 /// Muted text, placeholders, secondary labels.
 pub const NEUTRAL_MID: &str = "#959BB5";
 
+/// Muted text for light surfaces — WCAG AA compliant on `#F6F7FB`.
+/// Contrast ratio ~4.6:1 vs the default NEUTRAL_MID's ~2.9:1.
+pub const NEUTRAL_MID_ON_LIGHT: &str = "#6B7088";
+
 /// Dividers, inactive icons, outline hints.
 pub const NEUTRAL_SOFT: &str = "#8A8CAC";
 
