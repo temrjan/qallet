@@ -197,6 +197,7 @@ pub fn RestorePage() -> impl IntoView {
     let error = RwSignal::new(false);
     let loading = RwSignal::new(false);
     let textarea_ref = NodeRef::new();
+    let cursor_pos = RwSignal::new(0_usize);
 
     let phrase_valid = Signal::derive(move || {
         let count = phrase.read().trim().split_whitespace().count();
@@ -402,6 +403,7 @@ pub fn RestorePage() -> impl IntoView {
                 <div style="padding:20px 24px 0;flex:1;display:flex;flex-direction:column;">
                     <textarea
                         node_ref=textarea_ref
+                        prop:value=move || phrase.get()
                         style=format!(
                             "width:100%;min-height:140px;padding:14px;\
                              background:#FFFFFF;border:1.5px solid {SURFACE_BORDER};\
@@ -415,6 +417,37 @@ pub fn RestorePage() -> impl IntoView {
                         on:input=move |ev| {
                             phrase.set(event_target_value(&ev));
                             phrase_error.set(None);
+                            if let Some(el) = textarea_ref.get() {
+                                if let Ok(el) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+                                    if let Ok(start) = el.selection_start() {
+                                        if let Some(start) = start {
+                                            cursor_pos.set(start as usize);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        on:click=move |_| {
+                            if let Some(el) = textarea_ref.get() {
+                                if let Ok(el) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+                                    if let Ok(start) = el.selection_start() {
+                                        if let Some(start) = start {
+                                            cursor_pos.set(start as usize);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        on:keyup=move |_| {
+                            if let Some(el) = textarea_ref.get() {
+                                if let Ok(el) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+                                    if let Ok(start) = el.selection_start() {
+                                        if let Some(start) = start {
+                                            cursor_pos.set(start as usize);
+                                        }
+                                    }
+                                }
+                            }
                         }
                     />
 
@@ -431,22 +464,35 @@ pub fn RestorePage() -> impl IntoView {
                                 view! {
                                     <button
                                         on:click=move |_| {
-                                            let current_text = phrase.get();
-                                            let mut words: Vec<&str> = current_text.split_whitespace().collect();
-                                            if !current_text.ends_with(char::is_whitespace) {
-                                                words.pop();
-                                            }
-                                            words.push(word_for_closure);
-                                            let new_phrase = words.join(" ") + " ";
-                                            phrase.set(new_phrase.clone());
+                                            let text = phrase.get();
+                                            let pos = cursor_pos.get_untracked();
+
+                                            // Determine word boundaries around the cursor.
+                                            let before = &text[..pos.min(text.len())];
+                                            let after = &text[pos.min(text.len())..];
+                                            let word_start = before.rfind(char::is_whitespace).map(|i| i + 1).unwrap_or(0);
+                                            let word_end = pos + after.find(char::is_whitespace).unwrap_or(after.len());
+
+                                            let replacement = format!("{} ", word_for_closure);
+                                            let new_text = format!("{}{}{}", &text[..word_start], replacement, &text[word_end..]);
+                                            let new_cursor = word_start + replacement.len();
+
+                                            phrase.set(new_text);
                                             phrase_error.set(None);
-                                            if let Some(el) = textarea_ref.get() {
-                                                if let Ok(el) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
-                                                    let len = u32::try_from(new_phrase.len()).unwrap_or(0);
-                                                    let _ = el.focus();
-                                                    let _ = el.set_selection_range(len, len);
-                                                }
-                                            }
+
+                                            let textarea = textarea_ref;
+                                            set_timeout(
+                                                move || {
+                                                    if let Some(el) = textarea.get() {
+                                                        if let Ok(el) = el.dyn_into::<web_sys::HtmlTextAreaElement>() {
+                                                            let cursor_u32 = u32::try_from(new_cursor).unwrap_or(0);
+                                                            let _ = el.focus();
+                                                            let _ = el.set_selection_range(cursor_u32, cursor_u32);
+                                                        }
+                                                    }
+                                                },
+                                                std::time::Duration::from_millis(0),
+                                            );
                                         }
                                         style=format!(
                                             "flex:0 0 auto;padding:6px 14px;border-radius:999px;\

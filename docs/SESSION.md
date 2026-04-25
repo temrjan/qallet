@@ -77,6 +77,7 @@
 ### 🔄 Что в работе / PR
 
 - **PR #2** — `audit/kimi-k2.5-fixes` (a11y WCAG fixes, zeroize biometric password, interval/listener leak fix, BalanceHidden toggle)
+- **A1** — BIP-39 autocomplete в restore.rs (cursor-aware insertion, controlled textarea)
 
 ### 📋 Known gaps (не блокеры)
 
@@ -99,7 +100,7 @@
 
 | # | Шаг | Файлы | Сложность | Блокеры |
 |---|-----|-------|-----------|---------|
-| A1 | **BIP-39 autocomplete в restore.rs** | `pages/restore.rs` | Medium | Нет |
+| A1 | ~~BIP-39 autocomplete в restore.rs~~ ✅ | `pages/restore.rs` | Medium | — |
 | A2 | **"Scan Again" кнопка на Analyze** | `pages/analyze.rs` | Low | Нет |
 | A3 | **Biometric testing + enrollment docs** | `docs/TESTING.md` | Low | Симулятор/эмулятор |
 | A4 | **Privacy policy page** | новый `pages/privacy.rs` | Low | Нет |
