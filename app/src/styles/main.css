@@ -22,6 +22,17 @@
     animation: rw-pulse 1.4s ease-in-out infinite;
 }
 
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .rw-pulse-dot {
+        animation: none;
+        opacity: 1;
+    }
+    .rw-shake {
+        animation: none;
+    }
+}
+
 /* Keypad button press tactile feedback */
 .rw-keypad-btn:active {
     background: rgba(131, 135, 195, 0.25) !important;
@@ -40,6 +51,18 @@
 
 *, *::before, *::after {
     box-sizing: border-box;
+}
+
+/* ─── Focus-visible styles for keyboard navigation ───────────── */
+/* Mouse clicks don't show the ring; keyboard navigation does.     */
+:focus-visible {
+    outline: 2px solid #8387C3;
+    outline-offset: 2px;
+}
+
+/* Remove default focus outline; focus-visible handles it above.   */
+:focus:not(:focus-visible) {
+    outline: none;
 }
 
 html {
@@ -119,15 +142,15 @@ body {
 a { color: #8A8A8A; text-decoration: none; transition: color 0.15s; }
 a[aria-current="page"] { color: #f59e0b; }
 
-/* ─── Mobile touch targets (Apple HIG: 44pt minimum) ──────────── */
+/* ─── Mobile touch targets (Material: 48dp minimum) ───────────── */
 
 input, select, textarea {
-    min-height: 44px;
+    min-height: 48px;
     font-size: 16px;
 }
 
 button {
-    min-height: 44px;
+    min-height: 48px;
 }
 
 /* Button states */
@@ -233,6 +256,20 @@ input:focus {
 
 .tab-bar a[aria-current="page"] {
     color: #8387C3;
+    position: relative;
+}
+
+/* Active tab indicator — top border for non-color distinction (WCAG 1.4.1) */
+.tab-bar a[aria-current="page"]::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 3px;
+    background: #8387C3;
+    border-radius: 0 0 2px 2px;
 }
 
 .tab-bar a:hover {
