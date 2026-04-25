@@ -26,6 +26,37 @@ pub enum WalletState {
     Unlocked,
 }
 
+/// User-selected color theme for the recurring app surfaces.
+///
+/// Onboarding (Welcome / Wallet wizard / Restore) is locked to the static
+/// light palette; only the Unlock + main-app screens follow this enum via
+/// the `var(--rw-*)` CSS variables defined in `app/src/index.html`.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ThemeKind {
+    /// Default — navy surfaces, periwinkle accents.
+    Dark,
+    /// Light surfaces, same accents.
+    Light,
+}
+
+const STORAGE_KEY_THEME: &str = "rustok.theme";
+
+/// Read the persisted theme from `localStorage`. Falls back to `Dark`
+/// when the entry is missing or storage is unavailable (private mode,
+/// embedded WebView without web-storage).
+fn load_theme() -> ThemeKind {
+    let Some(win) = web_sys::window() else {
+        return ThemeKind::Dark;
+    };
+    let Some(storage) = win.local_storage().ok().flatten() else {
+        return ThemeKind::Dark;
+    };
+    match storage.get_item(STORAGE_KEY_THEME).ok().flatten().as_deref() {
+        Some("light") => ThemeKind::Light,
+        _ => ThemeKind::Dark,
+    }
+}
+
 #[derive(Serialize)]
 struct EmptyArgs {}
 
@@ -35,6 +66,30 @@ pub fn App() -> impl IntoView {
     // Starts as Loading; resolved asynchronously by the startup probe below.
     let state = RwSignal::new(WalletState::Loading);
     provide_context(state);
+
+    // Theme — persisted in localStorage, synced to the document on change.
+    // Anti-FOUC bootstrap (in index.html) already set `data-theme` before
+    // WASM mount, so the initial paint matches the stored preference.
+    let theme = RwSignal::new(load_theme());
+    provide_context(theme);
+
+    Effect::new(move |_| {
+        let (attr, color) = match theme.get() {
+            ThemeKind::Dark => ("dark", "#0A1123"),
+            ThemeKind::Light => ("light", "#F6F7FB"),
+        };
+        let Some(win) = web_sys::window() else { return };
+        if let Ok(Some(storage)) = win.local_storage() {
+            let _ = storage.set_item(STORAGE_KEY_THEME, attr);
+        }
+        let Some(doc) = win.document() else { return };
+        if let Some(el) = doc.document_element() {
+            let _ = el.set_attribute("data-theme", attr);
+        }
+        if let Ok(Some(meta)) = doc.query_selector("meta[name=\"theme-color\"]") {
+            let _ = meta.set_attribute("content", color);
+        }
+    });
 
     // Startup probe: does a keystore exist? Is the wallet already unlocked?
     //

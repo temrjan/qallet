@@ -146,6 +146,39 @@ pub mod rw_type {
     pub const BOLD: u16 = 700;
 }
 
+// ─── Theme-aware CSS variables ──────────────────────────────────
+
+/// CSS custom-property references for the switchable theme.
+///
+/// Use these on recurring app surfaces (Unlock + main app screens) where
+/// the user expects light/dark to follow the Settings toggle. One-time
+/// onboarding screens (Welcome / Wallet wizard / Restore) keep the static
+/// `t::*` constants because their first-impression contrast is fixed.
+///
+/// The variables themselves live in `app/src/index.html` `<style>` block;
+/// dark is the default and `:root[data-theme="light"]` overrides them.
+pub mod css {
+    /// Page background — replaces `BG_DARK` on switchable screens.
+    pub const BG: &str = "var(--rw-bg)";
+    /// Cards / sections — replaces `SURFACE_DARK`.
+    pub const SURFACE: &str = "var(--rw-surface-1)";
+    /// Elevated surfaces — replaces `SURFACE_DARK_2`.
+    pub const SURFACE_2: &str = "var(--rw-surface-2)";
+    /// Hairlines on theme surfaces — replaces `BORDER_DARK`.
+    pub const BORDER: &str = "var(--rw-border)";
+    /// Primary text — replaces `TEXT_LIGHT`.
+    pub const TEXT: &str = "var(--rw-text)";
+    /// Hero card gradient — replaces `CARD_DARK`.
+    pub const CARD: &str = "var(--rw-card)";
+    /// Switch OFF track — separate from generic border to keep the toggle
+    /// visually subtle on light surfaces. Used by `settings::Switch`.
+    pub const SWITCH_OFF: &str = "var(--rw-switch-off)";
+    /// Bottom tab bar background (semi-transparent for blur backdrop).
+    pub const TAB_BG: &str = "var(--rw-tab-bg)";
+    /// Muted text / inactive icons — theme-aware variant of `NEUTRAL_MID`.
+    pub const NEUTRAL_MID: &str = "var(--rw-neutral-mid)";
+}
+
 // ─── Radii ──────────────────────────────────────────────────────
 
 /// Border radius scale tokens (in pixels).
