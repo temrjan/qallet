@@ -1,3 +1,6 @@
+> ⚠️ **Архивный документ.** Актуальная точка входа — `docs/SESSION.md`.
+> Читай SESSION.md перед работой. Этот файл — история code review.
+
 # Code Review — Rustok Full Codebase
 > Date: 2026-04-12 (updated)
 > Previous review: 2026-04-11
