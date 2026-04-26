@@ -41,17 +41,52 @@ Legend: `iOS | Android` — each row flags per-platform status. `x` = verified o
 | A5 | Unlock with wrong password -> error message (verified in code + tests) | [ ] | [ ] |
 | A6 | Keystore JSON file exists in app data directory | [x] | [x] |
 
+## Biometric Enrollment Guide
+
+Biometric unlock requires enrollment in the host Simulator / Emulator before any test in section B can be executed.
+
+### iOS Simulator — Face ID
+
+1. Launch the app in Simulator (`cargo tauri ios dev`).
+2. In the Simulator menu bar: **Features → Face ID → Enrolled** (checkmark appears).
+3. During testing use:
+   - **Features → Face ID → Matching Face** — simulates successful authentication.
+   - **Features → Face ID → Non-matching Face** — simulates rejected authentication.
+   - **Features → Face ID → Enrolled** — toggle off to remove enrollment.
+
+> Enrollment may reset between Simulator restarts.
+
+### Android Emulator — Fingerprint
+
+1. Launch the emulator (`emulator -avd Pixel_8_API_35`).
+2. Open **Extended Controls** (⋯ icon in the emulator toolbar) → **Fingerprint**.
+3. Click **Add fingerprint** and follow the on-screen instructions (touch the sensor when prompted).
+   - Alternative path: Android **Settings → Security → Fingerprint**.
+4. During testing use **Extended Controls → Fingerprint → Touch the sensor** to simulate a recognized finger.
+
+> Emulator fingerprint enrollment persists across restarts.
+
+---
+
 ## B. Biometric (Face ID / Fingerprint)
+
+> ⚠️ Requires enrollment (see Biometric Enrollment Guide above).
+> Desktop platforms do **not** support biometric unlock; only mobile (iOS / Android).
 
 | # | Scenario | iOS (Face ID) | Android (Fingerprint) |
 |---|----------|---------------|------------------------|
-| B1 | Enable biometric: unlock with password -> prompted -> confirm | [ ] | [ ] |
-| B2 | Reopen app -> unlock with biometric | [ ] | [ ] |
-| B3 | Biometric rejected -> stays locked | [ ] | [ ] |
-| B4 | Settings -> Disable removes biometric | [ ] | [ ] |
-| B5 | Re-enable via password unlock prompt | [ ] | [ ] |
+| B1 | Enable biometric: unlock with password → Settings → toggle → system prompt → confirm | [ ] | [ ] |
+| B2 | Reopen app → tap "Unlock with Biometric" → system prompt → unlock success | [ ] | [ ] |
+| B3 | Biometric rejected (Non-matching Face / unknown finger) → stays locked, error shown | [ ] | [ ] |
+| B4 | Settings → Disable biometric → toggle off → password removed from secure storage | [ ] | [ ] |
+| B5 | Re-enable via password unlock → Settings → toggle on → prompt → confirm | [ ] | [ ] |
 
-> Not tested: requires biometric enrollment in the respective Simulator/Emulator.
+**Implementation notes (post-refactor):**
+- Mobile stores the password in hardware-backed secure storage (`tauri-plugin-keystore` → Android Keystore / iOS Keychain). No app-static encryption key is used.
+- Desktop stores the password in the OS keyring (`keyring` crate) without a biometric prompt.
+- `is_biometric_enabled` checks an empty marker file (`biometric.enabled`) and **does not** trigger a biometric prompt.
+- `biometric_unlock_wallet` automatically triggers the system biometric prompt on mobile.
+- Known alpha-plugin limitation (Android): `enable_biometric_unlock` may return success before the user completes the biometric prompt. If the user cancels, the marker file is created but the password is not stored; simply disable and re-enable to recover.
 
 ## C. Balance & Home Page
 
@@ -191,4 +226,4 @@ Legend: `iOS | Android` — each row flags per-platform status. `x` = verified o
 | ~~Etherscan API without key~~ | ~~Rate limited on free tier~~ Migrated to Blockscout | Done |
 | Multiple keystores → unlock picks first found | Creating second wallet doesn't delete first | Consider |
 | No "Scan Again" button | Must navigate away and back to reset | Consider |
-| Biometric not tested | Needs Face ID enrollment in iOS Simulator / Fingerprint in Android Emulator | Next session |
+| ~~Biometric not tested~~ | ~~Needs Face ID enrollment in iOS Simulator / Fingerprint in Android Emulator~~ | Enrollment guide added, manual testing pending |
