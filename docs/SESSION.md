@@ -126,7 +126,7 @@
 |---|-----|---------|
 | B1 | iOS TestFlight | Apple Developer Program ($99, не оплачен) |
 | B2 | Google Play Production | Privacy policy URL + signed AAB |
-| B3 | Brand launcher icon | `cargo tauri icon` из `logo.png` |
+| B3 | ~~Brand launcher icon~~ ✅ | `cargo tauri icon` из `logo.png` |
 
 ### Этап C: Infrastructure (параллельно с Phase 4)
 
@@ -264,4 +264,4 @@ adb logcat -s rustok:V
 
 ---
 
-*Документ создан: 2026-04-25. Последняя сессия: A5.4 (Google Play automated upload).*\n*Следующий приоритет: B3 — Brand launcher icon (cargo tauri icon).*
+*Документ создан: 2026-04-25. Последняя сессия: B3 (Brand launcher icon).*\n*Следующий приоритет: C1 — Cloudflare Worker proxy toggle.*
