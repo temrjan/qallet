@@ -140,9 +140,42 @@ base64 -i ~/Keys/rustok-release.keystore | pbcopy
 # Paste into GitHub Secret ANDROID_KEYSTORE_BASE64
 ```
 
-### 4.2 Automated Play Console Upload (future work)
+### 4.3 Automated Play Console Upload
 
-See `A5.4` in `docs/SESSION.md` — automated upload to Google Play Internal Testing track is planned.
+Enable **Upload to Google Play Console** in the workflow dispatch options.
+
+**Required GitHub Secret:**
+
+| Secret | Description |
+|--------|-------------|
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Full JSON key of a Google Play service account |
+
+**Setting up the service account (one-time):**
+
+1. **Google Cloud Console**
+   - Go to [console.cloud.google.com](https://console.cloud.google.com) → IAM & Admin → Service Accounts
+   - Create a service account (e.g. `rustok-play-upload`)
+   - Grant role: **Service Account User**
+   - Create a JSON key and download it
+
+2. **Google Play Console**
+   - Go to [play.google.com/console](https://play.google.com/console) → Setup → API access
+   - Link the service account from step 1
+   - Go to **Users & permissions** → find the service account email
+   - Grant **Release manager** (or Admin) permission for `com.rustok.app`
+
+3. **GitHub Secrets**
+   - Copy the entire JSON key content
+   - Add as secret `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+
+**Run the workflow:**
+
+1. **Actions → Android Release Build → Run workflow**
+2. Enable **Upload to Google Play Console**
+3. Choose **Track** (`internal` / `alpha` / `beta` / `production`)
+4. Choose **Status** (`completed` — immediately available, `draft` — manual review required)
+
+> **Note:** `completed` status on `production` track will roll out immediately to all users. Use `draft` for production to review first.
 
 ---
 
