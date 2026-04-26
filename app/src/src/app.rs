@@ -60,6 +60,12 @@ pub struct SplashDone(pub RwSignal<bool>);
 #[derive(Clone, Copy)]
 pub struct BalanceHidden(pub RwSignal<bool>);
 
+/// Toggle for routing all RPC calls through the Cloudflare Worker proxy.
+///
+/// Newtyped over `RwSignal<bool>` to avoid context-key collisions.
+#[derive(Clone, Copy)]
+pub struct UseProxy(pub RwSignal<bool>);
+
 const STORAGE_KEY_THEME: &str = "rustok.theme";
 const STORAGE_KEY_BALANCE_HIDDEN: &str = "rustok.balance-hidden";
 
@@ -127,6 +133,46 @@ pub fn App() -> impl IntoView {
         splash_timeout.update_value(|t| { *t = SendWrapper::new(None); });
     });
 
+    // Cloudflare Worker proxy toggle — synced with backend on every change.
+    let use_proxy = RwSignal::new(false);
+    provide_context(UseProxy(use_proxy));
+
+    let alive = Arc::new(AtomicBool::new(true));
+    let alive_cleanup = alive.clone();
+    on_cleanup(move || {
+        alive_cleanup.store(false, Ordering::Relaxed);
+    });
+
+    let alive_proxy = alive.clone();
+    spawn_local(async move {
+        if !alive_proxy.load(Ordering::Relaxed) { return; }
+        match tauri_invoke::<_, bool>("get_proxy_enabled", &EmptyArgs {}).await {
+            Ok(enabled) => {
+                if alive_proxy.load(Ordering::Relaxed) {
+                    use_proxy.set(enabled);
+                }
+            }
+            Err(e) => {
+                web_sys::console::warn_1(&format!("failed to load proxy state: {e}").into());
+            }
+        }
+    });
+
+    let alive_proxy_effect = alive.clone();
+    Effect::new(move |_| {
+        let enabled = use_proxy.get();
+        let alive = alive_proxy_effect.clone();
+        spawn_local(async move {
+            if !alive.load(Ordering::Relaxed) { return; }
+            #[derive(Serialize)]
+            struct ProxyArgs { enabled: bool }
+            let args = ProxyArgs { enabled };
+            if let Err(e) = tauri_invoke::<_, ()>("set_proxy_enabled", &args).await {
+                web_sys::console::warn_1(&format!("failed to set proxy state: {e}").into());
+            }
+        });
+    });
+
     Effect::new(move |_| {
         let (attr, color) = match theme.get() {
             ThemeKind::Dark => ("dark", "#0A1123"),
@@ -161,12 +207,6 @@ pub fn App() -> impl IntoView {
                 web_sys::console::warn_1(&format!("failed to persist balance-hidden: {e:?}").into());
             }
         }
-    });
-
-    let alive = Arc::new(AtomicBool::new(true));
-    let alive_cleanup = alive.clone();
-    on_cleanup(move || {
-        alive_cleanup.store(false, Ordering::Relaxed);
     });
 
     // Startup probe: does a keystore exist? Is the wallet already unlocked?

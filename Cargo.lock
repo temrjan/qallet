@@ -6134,6 +6134,7 @@ dependencies = [
  "tauri-plugin-clipboard-manager",
  "tauri-plugin-keystore",
  "tauri-plugin-shell",
+ "tokio",
  "tracing",
  "tracing-subscriber 0.3.23",
  "txguard",

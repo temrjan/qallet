@@ -14,7 +14,9 @@ use tauri::{Manager, State};
 
 /// Shared application state across all commands.
 pub struct AppState {
-    pub provider: MultiProvider,
+    /// NOTE: std::sync::Mutex — lock must never be held across .await points.
+    /// Clone the provider before any await, then drop the guard immediately.
+    pub provider: Mutex<MultiProvider>,
     pub explorer: ExplorerClient,
     /// NOTE: std::sync::Mutex — lock must never be held across .await points.
     /// Acceptable for desktop app with low concurrency. Switch to tokio::sync::Mutex
@@ -79,7 +81,12 @@ pub async fn get_balance(
     let addr = address
         .parse()
         .map_err(|e| format!("invalid address: {e}"))?;
-    let balance = state.provider.unified_balance(addr).await;
+    let provider = state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?
+        .clone();
+    let balance = provider.unified_balance(addr).await;
     Ok(balance.into())
 }
 
@@ -372,7 +379,12 @@ pub async fn get_wallet_balance(state: State<'_, AppState>) -> Result<UnifiedBal
         let w = lock.as_ref().ok_or("wallet not unlocked")?;
         w.keyring.address()
     };
-    let balance = state.provider.unified_balance(addr).await;
+    let provider = state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?
+        .clone();
+    let balance = provider.unified_balance(addr).await;
     Ok(balance.into())
 }
 
@@ -400,7 +412,12 @@ pub async fn preview_send(
     let amount_wei = rustok_core::amount::parse_eth_amount(&amount).map_err(|e| e.to_string())?;
 
     // 3. Run preview.
-    let preview = rustok_core::send::preview_send(&state.provider, from, to_addr, amount_wei)
+    let provider = state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?
+        .clone();
+    let preview = rustok_core::send::preview_send(&provider, from, to_addr, amount_wei)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -431,20 +448,20 @@ pub async fn send_eth(
     let amount_wei = rustok_core::amount::parse_eth_amount(&amount).map_err(|e| e.to_string())?;
 
     // 3. Preview first (txguard + routing).
-    let preview = rustok_core::send::preview_send(&state.provider, from, to_addr, amount_wei)
+    let provider = state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?
+        .clone();
+    let preview = rustok_core::send::preview_send(&provider, from, to_addr, amount_wei)
         .await
         .map_err(|e| e.to_string())?;
 
     // 4. Execute send.
-    let result = rustok_core::send::execute_send(
-        &state.provider,
-        signer,
-        to_addr,
-        amount_wei,
-        &preview.route,
-    )
-    .await
-    .map_err(|e| e.to_string())?;
+    let result =
+        rustok_core::send::execute_send(&provider, signer, to_addr, amount_wei, &preview.route)
+            .await
+            .map_err(|e| e.to_string())?;
 
     Ok(send_result_to_dto(result))
 }
@@ -464,10 +481,13 @@ pub async fn get_transaction_history(
         w.keyring.address()
     };
     // Lock dropped — safe to .await.
-    let history = state
-        .explorer
-        .fetch_history(addr, state.provider.chains(), 20)
-        .await;
+    let chains = state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?
+        .chains()
+        .to_vec();
+    let history = state.explorer.fetch_history(addr, &chains, 20).await;
     Ok(history)
 }
 
@@ -559,6 +579,58 @@ pub async fn biometric_unlock_wallet(
         .app_data_dir()
         .map_err(|e| format!("no app data dir: {e}"))?;
     unlock_with_password(&password, &data_dir, &state)
+}
+
+// ─── Proxy toggle ───────────────────────────────────────────────────
+
+/// Read whether the Cloudflare Worker proxy is enabled.
+///
+/// Uses a marker file in the app data directory.
+#[tauri::command]
+pub fn get_proxy_enabled(app_handle: tauri::AppHandle) -> bool {
+    if let Ok(data_dir) = app_handle.path().app_data_dir() {
+        data_dir.join("proxy.enabled").exists()
+    } else {
+        false
+    }
+}
+
+/// Enable or disable the Cloudflare Worker proxy at runtime.
+///
+/// Writes a marker file and replaces the active `MultiProvider` in `AppState`
+/// so subsequent RPC calls use the new configuration immediately.
+#[tauri::command]
+pub async fn set_proxy_enabled(
+    enabled: bool,
+    app_handle: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let data_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("no app data dir: {e}"))?;
+    let marker = data_dir.join("proxy.enabled");
+
+    if enabled {
+        tokio::fs::write(&marker, "")
+            .await
+            .map_err(|e| format!("failed to write proxy marker: {e}"))?;
+    } else {
+        let _ = tokio::fs::remove_file(&marker).await;
+    }
+
+    let new_provider = if enabled {
+        MultiProvider::proxy_chains()
+    } else {
+        MultiProvider::default_chains()
+    };
+
+    *state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))? = new_provider;
+
+    Ok(())
 }
 
 // ─── Tests ──────────────────────────────────────────────────────────

@@ -21,6 +21,8 @@ pub struct Chain {
     pub native_decimals: u8,
     /// Whether this is a testnet.
     pub testnet: bool,
+    /// Machine-friendly slug for API paths (e.g. "ethereum", "arbitrum").
+    pub slug: &'static str,
 }
 
 /// Default supported chains for MVP.
@@ -39,6 +41,7 @@ pub fn default_chains() -> Vec<Chain> {
             native_symbol: "ETH".into(),
             native_decimals: 18,
             testnet: false,
+            slug: "ethereum",
         },
         Chain {
             id: 42161,
@@ -51,6 +54,7 @@ pub fn default_chains() -> Vec<Chain> {
             native_symbol: "ETH".into(),
             native_decimals: 18,
             testnet: false,
+            slug: "arbitrum",
         },
         Chain {
             id: 8453,
@@ -63,6 +67,7 @@ pub fn default_chains() -> Vec<Chain> {
             native_symbol: "ETH".into(),
             native_decimals: 18,
             testnet: false,
+            slug: "base",
         },
         Chain {
             id: 10,
@@ -75,6 +80,7 @@ pub fn default_chains() -> Vec<Chain> {
             native_symbol: "ETH".into(),
             native_decimals: 18,
             testnet: false,
+            slug: "optimism",
         },
         Chain {
             id: 324,
@@ -84,6 +90,7 @@ pub fn default_chains() -> Vec<Chain> {
             native_symbol: "ETH".into(),
             native_decimals: 18,
             testnet: false,
+            slug: "zksync",
         },
         Chain {
             id: 11155111,
@@ -97,6 +104,7 @@ pub fn default_chains() -> Vec<Chain> {
             native_symbol: "ETH".into(),
             native_decimals: 18,
             testnet: true,
+            slug: "sepolia",
         },
     ]
 }
@@ -107,6 +115,26 @@ impl Chain {
     pub fn primary_rpc(&self) -> Option<&str> {
         self.rpc_urls.first().map(|s| s.as_str())
     }
+}
+
+/// Default Cloudflare Worker proxy base URL.
+#[must_use]
+pub(crate) const fn default_proxy_base() -> &'static str {
+    "https://rpc.rustokwallet.com"
+}
+
+/// Build chain configuration routing all RPC calls through the proxy.
+///
+/// Each chain gets a single RPC URL: `{proxy_base}/rpc/{slug}`.
+#[must_use]
+pub(crate) fn chains_with_proxy(proxy_base: &str) -> Vec<Chain> {
+    default_chains()
+        .into_iter()
+        .map(|mut c| {
+            c.rpc_urls = vec![format!("{proxy_base}/rpc/{}", c.slug)];
+            c
+        })
+        .collect()
 }
 
 #[cfg(test)]

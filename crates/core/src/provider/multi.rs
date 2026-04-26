@@ -41,6 +41,7 @@ pub enum ProviderError {
 /// Multi-chain provider that queries all configured chains.
 ///
 /// Shares a single `reqwest::Client` (connection pool) across all RPC calls.
+#[derive(Clone)]
 pub struct MultiProvider {
     chains: Vec<Chain>,
     http: reqwest::Client,
@@ -114,6 +115,14 @@ impl MultiProvider {
             .filter(|c| !c.testnet)
             .collect();
         Self::new(chains)
+    }
+
+    /// Create a provider that routes all RPC calls through the Cloudflare Worker proxy.
+    #[must_use]
+    pub fn proxy_chains() -> Self {
+        Self::new(super::chains::chains_with_proxy(
+            super::chains::default_proxy_base(),
+        ))
     }
 
     /// Get native token balance across all chains.

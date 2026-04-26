@@ -223,3 +223,13 @@ icon_component!(
         <path d="M21 4H8l-6 8 6 8h13a2 2 0 002-2V6a2 2 0 00-2-2zM18 9l-6 6M12 9l6 6"/>
     }
 );
+
+icon_component!(
+    /// Globe / network proxy.
+    IconGlobe,
+    view! {
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M2 12h20"/>
+        <path d="M12 2a15.3 15.3 0 010 20 15.3 15.3 0 010-20"/>
+    }
+);

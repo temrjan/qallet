@@ -41,7 +41,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_keystore::init());
     builder
         .manage(AppState {
-            provider: MultiProvider::default_chains(),
+            provider: Mutex::new(MultiProvider::default_chains()),
             explorer: ExplorerClient::new(),
             wallet: Mutex::new(None),
         })
@@ -66,6 +66,8 @@ pub fn run() {
             commands::disable_biometric_unlock,
             commands::biometric_unlock_wallet,
             commands::get_transaction_history,
+            commands::get_proxy_enabled,
+            commands::set_proxy_enabled,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

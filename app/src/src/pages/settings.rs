@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use crate::app::{BalanceHidden, ThemeKind, WalletState};
+use crate::app::{BalanceHidden, ThemeKind, UseProxy, WalletState};
 use crate::bridge::tauri_invoke;
-use crate::components::icons::{IconArrowUpRight, IconChevronRight, IconEye, IconEyeOff, IconFaceId, IconLock, IconPlus};
+use crate::components::icons::{IconArrowUpRight, IconChevronRight, IconEye, IconEyeOff, IconFaceId, IconGlobe, IconLock, IconPlus};
 use crate::tokens::{self as t, rw_radius, rw_type};
 
 #[derive(Serialize)]
@@ -204,6 +204,31 @@ pub fn SettingsPage() -> impl IntoView {
                 />
             </Section>
 
+            // ── Network ─────────────────────────────────────
+            {
+                let UseProxy(use_proxy) = use_context::<UseProxy>()
+                    .expect("UseProxy context missing — must be provided in App");
+                let toggle_proxy = move || {
+                    use_proxy.update(|v| *v = !*v);
+                };
+                view! {
+                    <SectionTitle label="Network"/>
+                    <Section>
+                        <ToggleRow
+                            label="Cloudflare proxy"
+                            caption=move || if use_proxy.get() {
+                                "RPC routed through rustokwallet.com"
+                            } else {
+                                "Direct RPC connections (default)"
+                            }
+                            icon=IconKind::Globe
+                            on=use_proxy
+                            on_click=Callback::new(move |()| toggle_proxy())
+                        />
+                    </Section>
+                }
+            }
+
             // ── Actions ─────────────────────────────────────
             <SectionTitle label="Actions"/>
             <Section>
@@ -300,6 +325,7 @@ enum IconKind {
     Eye,
     EyeOff,
     ArrowUpRight,
+    Globe,
 }
 
 #[component]
@@ -313,6 +339,7 @@ fn RowIcon(kind: IconKind) -> impl IntoView {
         IconKind::Eye => view! { <IconEye size=18 stroke_width=2.0 color=color/> }.into_any(),
         IconKind::EyeOff => view! { <IconEyeOff size=18 stroke_width=2.0 color=color/> }.into_any(),
         IconKind::ArrowUpRight => view! { <IconArrowUpRight size=18 stroke_width=2.0 color=color/> }.into_any(),
+        IconKind::Globe => view! { <IconGlobe size=18 stroke_width=2.0 color=color/> }.into_any(),
     };
     view! {
         <div style=format!(
