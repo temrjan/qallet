@@ -113,7 +113,7 @@
 | A5.1 | ~~Security fix: keystore из Git~~ ✅ | `gen/android/` | Medium | keystore.properties в .gitignore, example + docs |
 | A5.2 | ~~CI foundation: Android debug build~~ ✅ | `.github/workflows/` | Medium | Проверить сборку в GitHub Actions |
 | A5.3 | ~~CI signed release AAB~~ ✅ | GitHub Secrets | Medium | Keystore из secrets, artifact |
-| A5.4 | **Google Play automated upload** | Play Console API | Low | Сервисный аккаунт Google Play |
+| A5.4 | ~~Google Play automated upload~~ ✅ | Play Console API | Low | Сервисный аккаунт Google Play |
 
 **A1 — BIP-39 autocomplete (приоритет #1):**
 - Wordlist 2048 слов — взять из `bip39` крейта (уже в зависимостях `rustok-core`)
@@ -264,4 +264,4 @@ adb logcat -s rustok:V
 
 ---
 
-*Документ создан: 2026-04-25. Последняя сессия: A5.3 (Android signed release AAB CI workflow).*\n*Следующий приоритет: A5.4 — Google Play automated upload.*
+*Документ создан: 2026-04-25. Последняя сессия: A5.4 (Google Play automated upload).*\n*Следующий приоритет: B3 — Brand launcher icon (cargo tauri icon).*
