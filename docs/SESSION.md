@@ -126,7 +126,7 @@
 | # | Шаг | Блокеры |
 |---|-----|---------|
 | B1 | iOS TestFlight | Apple Developer Program ($99, не оплачен) |
-| B2 | Google Play Production | Privacy policy URL + signed AAB |
+| B2 | **Google Play Production** | Privacy policy URL + signed AAB | Workflow running on `internal` track (first validation) |
 | B3 | ~~Brand launcher icon~~ ✅ | `cargo tauri icon` из `logo.png` |
 
 ### Этап C: Infrastructure (параллельно с Phase 4)
