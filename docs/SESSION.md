@@ -112,7 +112,7 @@
 | A4 | ~~Privacy policy page~~ ✅ | `settings.rs` → external link | Low | Link to rustokwallet.com/privacy |
 | A5.1 | ~~Security fix: keystore из Git~~ ✅ | `gen/android/` | Medium | keystore.properties в .gitignore, example + docs |
 | A5.2 | ~~CI foundation: Android debug build~~ ✅ | `.github/workflows/` | Medium | Проверить сборку в GitHub Actions |
-| A5.3 | **CI signed release AAB** | GitHub Secrets | Medium | Keystore из secrets, artifact |
+| A5.3 | ~~CI signed release AAB~~ ✅ | GitHub Secrets | Medium | Keystore из secrets, artifact |
 | A5.4 | **Google Play automated upload** | Play Console API | Low | Сервисный аккаунт Google Play |
 
 **A1 — BIP-39 autocomplete (приоритет #1):**
@@ -264,5 +264,4 @@ adb logcat -s rustok:V
 
 ---
 
-*Документ создан: 2026-04-25. Последняя сессия: A5.2 (Android debug CI workflow) + biometric_storage import fix.*
-*Следующий приоритет: A5.3 — CI signed release AAB.*
+*Документ создан: 2026-04-25. Последняя сессия: A5.3 (Android signed release AAB CI workflow).*\n*Следующий приоритет: A5.4 — Google Play automated upload.*
