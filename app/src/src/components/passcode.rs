@@ -90,8 +90,7 @@ pub fn Keypad(
     );
 
     view! {
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);\
-                    gap:10px;padding:0 20px 24px;">
+        <div class="keypad-grid">
             {['1','2','3','4','5','6','7','8','9'].into_iter().map(|d| {
                 let s = btn.clone();
                 view! {
@@ -102,7 +101,7 @@ pub fn Keypad(
             }).collect_view()}
 
             // blank placeholder
-            <div/>
+            <div class="keypad-blank"/>
 
             // zero
             <button class="rw-keypad-btn" style=btn.clone()
@@ -111,6 +110,7 @@ pub fn Keypad(
 
             // backspace — inline SVG (no external icon dep)
             <button
+                class="keypad-backspace"
                 style=format!(
                     "height:64px;background:transparent;border:none;\
                      display:flex;align-items:center;justify-content:center;\

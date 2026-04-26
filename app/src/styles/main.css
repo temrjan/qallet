@@ -680,3 +680,19 @@ input:focus {
     background: rgba(220, 38, 38, 0.15);
     color: #f87171;
 }
+
+/* ─── Keypad grid (Android WebView-safe) ───────────────────────── */
+.keypad-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 0 20px 24px;
+    justify-content: center;
+}
+.keypad-grid button,
+.keypad-grid .keypad-blank,
+.keypad-grid .keypad-backspace {
+    flex: 0 0 30%;
+    height: 64px;
+    box-sizing: border-box;
+}
