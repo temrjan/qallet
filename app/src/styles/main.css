@@ -808,3 +808,19 @@ input:focus {
     background: rgba(224, 107, 107, 0.12);
     color: #E06B6B;
 }
+
+/* Restore: BIP-39 suggestions row (Android WebView ignores reactive inline styles) */
+.rw-suggestions-row {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    margin-top: 12px;
+    padding: 4px 0;
+    flex-wrap: nowrap;
+    flex-direction: row;
+}
+.rw-suggestions-row-hidden {
+    display: none;
+}

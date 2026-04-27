@@ -367,10 +367,7 @@ pub fn RestorePage() -> impl IntoView {
         )>
 
             // ── Step 1: Phrase input ─────────────────────────────────────────
-            <div style=move || format!(
-                "flex-direction:column;flex:1;display:{};",
-                if step.get() == Step::Phrase { "flex" } else { "none" }
-            )>
+            <div class=move || if step.get() == Step::Phrase { "rw-step rw-step-active" } else { "rw-step" }>
                 <div style="padding:24px 24px 0;">
                     <button
                         on:click=move |_| { nav_back("/wallet/create", Default::default()); }
@@ -452,12 +449,11 @@ pub fn RestorePage() -> impl IntoView {
                     />
 
                     // BIP-39 word suggestions
-                    <div style=move || format!(
-                        "display:{};gap:8px;overflow-x:auto;scrollbar-width:none;\
-                         -ms-overflow-style:none;margin-top:12px;padding:4px 0;\
-                         flex-wrap:nowrap;flex-direction:row;",
-                        if suggestions.get().is_empty() { "none" } else { "flex" }
-                    )>
+                    <div class=move || if suggestions.get().is_empty() {
+                        "rw-suggestions-row rw-suggestions-row-hidden"
+                    } else {
+                        "rw-suggestions-row"
+                    }>
                         {move || {
                             suggestions.get().into_iter().map(|word| {
                                 let word_for_closure = word;
@@ -556,10 +552,7 @@ pub fn RestorePage() -> impl IntoView {
             </div>
 
             // ── Step 2: Set PIN ─────────────────────────────────────────────
-            <div style=move || format!(
-                "flex-direction:column;flex:1;display:{};",
-                if step.get() == Step::SetPin { "flex" } else { "none" }
-            )>
+            <div class=move || if step.get() == Step::SetPin { "rw-step rw-step-active" } else { "rw-step" }>
                 <div style="display:flex;flex-direction:column;align-items:center;padding:32px 24px 0;">
                     <div style=format!(
                         "width:72px;height:72px;border-radius:22px;\
@@ -599,10 +592,7 @@ pub fn RestorePage() -> impl IntoView {
             </div>
 
             // ── Step 3: Confirm PIN ─────────────────────────────────────────
-            <div style=move || format!(
-                "flex-direction:column;flex:1;display:{};",
-                if step.get() == Step::ConfirmPin { "flex" } else { "none" }
-            )>
+            <div class=move || if step.get() == Step::ConfirmPin { "rw-step rw-step-active" } else { "rw-step" }>
                 <div style="display:flex;flex-direction:column;align-items:center;padding:32px 24px 0;">
                     <div style=format!(
                         "width:72px;height:72px;border-radius:22px;\
@@ -644,10 +634,7 @@ pub fn RestorePage() -> impl IntoView {
             </div>
 
             // ── Step 4: Success ──────────────────────────────────────────────
-            <div style=move || format!(
-                "flex-direction:column;flex:1;display:{};",
-                if step.get() == Step::Success { "flex" } else { "none" }
-            )>
+            <div class=move || if step.get() == Step::Success { "rw-step rw-step-active" } else { "rw-step" }>
                 <WizardSuccess
                     title="Wallet restored"
                     subtitle="Your funds are back. Keep your recovery phrase safe — it's the only way in."
