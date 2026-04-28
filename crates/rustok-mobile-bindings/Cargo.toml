@@ -1,0 +1,18 @@
+[package]
+name = "rustok-mobile-bindings"
+description = "Mobile FFI bindings for rustok-core via uniffi"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+rustok-core = { path = "../core" }
+uniffi = "0.28"
+thiserror = { workspace = true }
