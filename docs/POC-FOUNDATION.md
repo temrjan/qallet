@@ -370,7 +370,8 @@ rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 
 ```bash
 # Workspace проверка
-cd C:/Claude/projects/Дизайн/rustok
+# ВАЖНО: путь должен быть ASCII-only (AGP не поддерживает кириллицу на Windows)
+cd C:/Claude/projects/rustok
 git status
 git log --oneline -5
 cargo test --workspace
@@ -386,13 +387,21 @@ cargo test
 # Cross-compile для Android (на Windows)
 cargo ndk -t arm64-v8a build --release
 
-# RN dev (Android)
+# RN dev (Android) — через PowerShell, не Git Bash!
 cd mobile
 npm install
-npx react-native start  # Metro
-# в другом терминале:
-adb devices  # check phone connected
-npx react-native run-android
+
+# Создать mobile/android/local.properties (gitignored, создавать вручную):
+# sdk.dir=C\:\\Users\\omadg\\AppData\\Local\\Android\\Sdk
+
+# Metro — в отдельном терминале:
+npx react-native start --port 8081
+
+# Сборка и установка APK (PowerShell из mobile/android/):
+.\gradlew.bat app:installDebug -PreactNativeDevServerPort=8081
+
+# Reverse port для физ. Android устройства (обязательно!):
+adb reverse tcp:8081 tcp:8081
 
 # RN dev (iOS — на Mac)
 cd mobile/ios
@@ -427,20 +436,47 @@ npx uniffi-bindgen-react-native generate \
 
 > Этот раздел сейчас пустой. Заполняется в Milestone 6 точными командами и версиями которые реально сработали.
 
-## 10.1 Final versions
-- React Native: TBD
-- uniffi: TBD
-- uniffi-bindgen-react-native: TBD
+## 10.1 Final versions (частично — обновляется по мере прохождения milestones)
+- React Native: 0.85.2
+- uniffi: 0.28
+- uniffi-bindgen-react-native: TBD (M3)
 - cargo-ndk: TBD
-- Android NDK: TBD
-- Xcode: TBD
-- Node: TBD
+- Android NDK: 27.1.12297006 (auto-установлен Gradle)
+- Gradle: 8.13 (не 9.x!)
+- Android Build-Tools: 36.0.0
+- Android Platform: 36
+- Xcode: TBD (M5)
+- Node: 24.11.1
+- Java: OpenJDK 21 (Android Studio bundled)
 
 ## 10.2 Step-by-step reproduction
 TBD после Milestone 6.
 
-## 10.3 Known issues / workarounds
-TBD.
+## 10.3 Known issues / workarounds (обновляется по ходу)
+
+**W1 — Non-ASCII project path (Windows):**
+AGP падает с "project path contains non-ASCII characters" если путь содержит кириллицу.
+Решение: проект должен лежать в ASCII-пути. Верный путь: `C:\Claude\projects\rustok\`
+
+**W2 — Gradle 9.x несовместим с AGP 8.x:**
+Ошибка: `JvmVendorSpec.IBM_SEMERU` не найден. Gradle 9.x убрал это поле.
+Решение: `gradle-wrapper.properties` → `gradle-8.13-bin.zip`
+
+**W3 — gradlew.bat не запускается из Git Bash:**
+`react-native run-android` вызывает `gradlew.bat` без `.\`, что не работает в bash.
+Решение: запускать `.\gradlew.bat app:installDebug` из PowerShell напрямую.
+
+**W4 — local.properties не создаётся автоматически:**
+Gradle не находит Android SDK без `mobile/android/local.properties`.
+Создать вручную: `sdk.dir=C\:\\Users\\omadg\\AppData\\Local\\Android\\Sdk`
+
+**W5 — Metro недоступен на физ. устройстве:**
+"Unable to load script" при запуске на телефоне через USB.
+Решение: `adb reverse tcp:8081 tcp:8081` перед запуском приложения.
+
+**W6 — Установка APK отклоняется (Xiaomi):**
+`INSTALL_FAILED_USER_RESTRICTED` — на экране появляется диалог подтверждения.
+Решение: разблокировать телефон перед `adb install`, принять диалог вручную.
 
 ## 10.4 Performance baseline
 - Cold call latency: TBD ms
