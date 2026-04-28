@@ -232,7 +232,8 @@ Releases:   Fastlane → Play Console + App Store Connect
 ## M. Команды первого старта новой сессии
 
 ```bash
-cd C:/Claude/projects/Дизайн/rustok
+# ВАЖНО: путь ASCII-only. AGP на Windows падает если в пути есть кириллица.
+cd C:/Claude/projects/rustok
 git status                       # clean working tree?
 git log --oneline -10            # что менялось?
 cargo test --workspace           # 110+ green?
