@@ -8,6 +8,11 @@ apply plugin: "com.facebook.react"
  */
 react {
     /* Folders */
+    // npm workspaces: deps hoisted to <repo-root>/node_modules — override RN paths.
+    // Default below assumes mobile/node_modules which is empty in workspace setup.
+    reactNativeDir = file("../../../node_modules/react-native")
+    codegenDir = file("../../../node_modules/@react-native/codegen")
+    cliFile = file("../../../node_modules/react-native/cli.js")
     //   The root of your project, i.e. where "package.json" lives. Default is '../..'
     // root = file("../../")
     //   The folder where the react-native NPM package is. Default is ../../node_modules/react-native

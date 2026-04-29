@@ -4,6 +4,7 @@ android/CMakeLists.txt
 android/src/main/java/
 android/src/main/jniLibs/
 android/build/
+android/.cxx/
 ios/
 src/Native*.ts
 src/index.tsx
