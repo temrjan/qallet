@@ -34,7 +34,8 @@
 - [ ] Auto-generated TS bindings в `mobile/src/native/rustok.ts` (типизированный wrapper)
 - [ ] Auto-generated Kotlin TurboModule в `mobile/android/.../`
 - [ ] Auto-generated Swift TurboModule в `mobile/ios/.../`
-- [ ] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI
+- [x] **Android APK сборка:** `gradlew app:assembleDebug` проходит, `librustok bridge .so` для arm64-v8a + x86_64 в APK (M3, Шаг 7)
+- [ ] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI (M4)
 - [ ] **iPhone физ. устройство:** IPA устанавливается через TestFlight или dev signing → нажатие кнопки → BIP-39 фраза в UI
 - [ ] Mnemonic валидируется через `bip39` library (12 слов, корректный checksum)
 - [ ] `docs/POC-FOUNDATION.md` обновлён секцией §10 "Reproduce steps" (final версия с реальными командами после прохождения)
@@ -500,11 +501,27 @@ TODO upstream: PR в ubrn заменив `resolve(...)` на `which::which("pret
 - `packages/react-native-rustok-bridge/android/src/main/AndroidManifest.xml`: убрать атрибут `package="com.rustok.bridge"` (namespace остаётся в build.gradle).
 TODO upstream: report bug в ubrn о несоответствии scaffold и AGP 8 conventions.
 
+**W9 — RN gradle plugin paths assume `<app>/node_modules` (npm workspaces hoist в `<repo-root>/node_modules`):**
+RN gradle plugin defaults жёстко прибиты к `<app>/node_modules/...` (для классической single-package структуры). В npm workspaces deps хойстятся в `<repo-root>/node_modules/`, поэтому defaults не находят файлы. Два failure modes:
+1. `mobile/android/settings.gradle:1` — `pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }` resolve'ится к `mobile/node_modules/@react-native/gradle-plugin` (не существует). Error: «Included build does not exist».
+2. После фикса (1), `apply plugin: "com.facebook.react.rootproject"` падает с «`mobile/node_modules/react-native/ReactAndroid/gradle.properties` does not exist» — RN root project plugin читает `reactNativeDir` extension с convention `root.dir("node_modules/react-native")` (см. `@react-native/gradle-plugin/.../ReactExtension.kt:36-39`).
+Решение (две правки):
+- `mobile/android/settings.gradle`: оба `includeBuild` пути `../node_modules/...` → `../../node_modules/...` (settings.gradle лежит в `mobile/android/`, `../..` = repo root).
+- `mobile/android/app/build.gradle`: внутри `react { ... }` блока добавить overrides:
+  ```groovy
+  reactNativeDir = file("../../../node_modules/react-native")
+  codegenDir = file("../../../node_modules/@react-native/codegen")
+  cliFile = file("../../../node_modules/react-native/cli.js")
+  ```
+  (`app/build.gradle` лежит в `mobile/android/app/`, `../../..` = repo root.) `react { reactNativeDir }` propagat'ится в root project plugin через `ReactPlugin.kt:67`.
+Verify: `gradlew app:assembleDebug` → `BUILD SUCCESSFUL`, APK содержит `lib/{arm64-v8a,x86_64}/libreact-native-rustok-bridge.so`.
+
 ## 10.4 Performance baseline
-- Cold call latency: TBD ms
-- Hot call latency: TBD ms
-- APK size: TBD MB
-- IPA size: TBD MB
+- Cold call latency: TBD ms (M4 — E2E на устройстве)
+- Hot call latency: TBD ms (M4)
+- APK size (debug, all 4 ABIs): **144 MB** (M3, includes libreactnative ~22 MB × 4 ABIs + librustok bridge ~12 MB × 2 ABIs + Hermes runtime). Release builds с ABI splits будут существенно меньше.
+- Cold build time (Gradle assembleDebug, hot Rust + npm cache): **3m 35s** (M3)
+- IPA size: TBD MB (M5 — на Mac)
 
 ---
 
