@@ -1,0 +1,18 @@
+# ubrn-generated artifacts (regenerated each build via npm run ubrn:android)
+cpp/
+android/CMakeLists.txt
+android/src/main/java/
+android/src/main/jniLibs/
+android/build/
+android/.cxx/
+ios/
+src/Native*.ts
+src/index.tsx
+src/generated/
+
+# Build outputs
+lib/
+build/
+
+# Node
+node_modules/

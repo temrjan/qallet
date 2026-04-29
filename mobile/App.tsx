@@ -1,10 +1,8 @@
 /**
  * Rustok Wallet — mobile UI shell.
  *
- * M2 scaffold from docs/POC-FOUNDATION.md (Phase 1).
- * The "Generate mnemonic" button is a placeholder; the actual call into
- * rustok-mobile-bindings via uniffi-bindgen-react-native will be wired
- * in Milestone 4.
+ * Wires `generateMnemonic` from react-native-rustok-bridge (uniffi turbo-module)
+ * into the UI in M3. End-to-end run on physical device is M4.
  */
 
 import { useState } from 'react';
@@ -20,6 +18,7 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { generateMnemonic } from 'react-native-rustok-bridge';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
@@ -35,9 +34,13 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
   const insets = useSafeAreaInsets();
   const [phrase, setPhrase] = useState<string | null>(null);
 
-  const onGenerate = () => {
-    // Wired to rustok-mobile-bindings in Milestone 4.
-    setPhrase('uniffi bridge will be wired in Milestone 4');
+  const onGenerate = async () => {
+    try {
+      const result = await generateMnemonic();
+      setPhrase(result);
+    } catch (e) {
+      setPhrase(`Error: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   const containerStyle = [

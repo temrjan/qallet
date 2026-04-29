@@ -34,7 +34,8 @@
 - [ ] Auto-generated TS bindings в `mobile/src/native/rustok.ts` (типизированный wrapper)
 - [ ] Auto-generated Kotlin TurboModule в `mobile/android/.../`
 - [ ] Auto-generated Swift TurboModule в `mobile/ios/.../`
-- [ ] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI
+- [x] **Android APK сборка:** `gradlew app:assembleDebug` проходит, `librustok bridge .so` для arm64-v8a + x86_64 в APK (M3, Шаг 7)
+- [ ] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI (M4)
 - [ ] **iPhone физ. устройство:** IPA устанавливается через TestFlight или dev signing → нажатие кнопки → BIP-39 фраза в UI
 - [ ] Mnemonic валидируется через `bip39` library (12 слов, корректный checksum)
 - [ ] `docs/POC-FOUNDATION.md` обновлён секцией §10 "Reproduce steps" (final версия с реальными командами после прохождения)
@@ -52,12 +53,14 @@
 
 ## 1.3 Что доказывает успешный POC
 
-1. **uniffi-bindgen-react-native работает с нашим Rust core** — нет фундаментальных блокеров
-2. **Build pipeline на Windows + Mac работает** — нет environment-specific issues
-3. **Физические устройства принимают builds** — нет signing/policy issues
-4. **Performance acceptable** — латентность Rust → JS вызова <100ms на cold call
+1. **uniffi-bindgen-react-native работает с нашим Rust core** — нет фундаментальных блокеров (✓ M3 — bindings генерируются, autolinking работает, `.so` в APK)
+2. **Build pipeline на Windows + Mac работает** — нет environment-specific issues (✓ Windows M3 — known issues W7/W8/W9 в §10.3; ☐ Mac M5)
+3. **Физические устройства принимают builds** — нет signing/policy issues (☐ Android M4, iOS M5)
+4. **Performance acceptable** — латентность Rust → JS вызова <100ms на cold call (☐ M4 E2E)
+5. **Code review показывает что архитектурные deferrals понятны и зафиксированы** — `/rust-review` + `/typescript-review` на закрытии каждого milestone; observations выше LOW → `docs/PHASE-2-CONSTRAINTS.md` (✓ M3 review pass: 1 HIGH, 2 MEDIUM, 2 LOW; LOW#1 audit отдельно, HIGH+MEDIUM в constraints)
 
 После успешного POC мы committed на Native путь и стартуем Phase 2 (Core API extraction).
+Phase 2 entry condition: items в `docs/PHASE-2-CONSTRAINTS.md` имеют документированные решения.
 
 ---
 
@@ -438,16 +441,18 @@ npx uniffi-bindgen-react-native generate \
 
 ## 10.1 Final versions (частично — обновляется по мере прохождения milestones)
 - React Native: 0.85.2
-- uniffi: 0.28
-- uniffi-bindgen-react-native: TBD (M3)
-- cargo-ndk: TBD
-- Android NDK: 27.1.12297006 (auto-установлен Gradle)
+- uniffi: `=0.31.0` (exact pin, aligned with ubrn workspace)
+- uniffi-bindgen-react-native: `0.31.0-2` (npm latest)
+- cargo-ndk: 4.1.2 (`cargo install cargo-ndk`)
+- Rust Android targets: `aarch64-linux-android`, `x86_64-linux-android` (`rustup target add ...`)
+- Android NDK: 27.1.12297006 (auto-установлен Gradle; для cargo-ndk выставлять inline `ANDROID_NDK_HOME` чтобы синхронизировать toolchain)
+- AGP: 8.12.0 (resolved by RN gradle plugin)
 - Gradle: 8.13 (не 9.x!)
 - Android Build-Tools: 36.0.0
-- Android Platform: 36
+- Android Platform: 36 (compileSdk + targetSdk; minSdk = 24)
 - Xcode: TBD (M5)
 - Node: 24.11.1
-- Java: OpenJDK 21 (Android Studio bundled)
+- Java: OpenJDK 21.0.10 (Android Studio bundled)
 
 ## 10.2 Step-by-step reproduction
 TBD после Milestone 6.
@@ -478,11 +483,47 @@ Gradle не находит Android SDK без `mobile/android/local.properties`.
 `INSTALL_FAILED_USER_RESTRICTED` — на экране появляется диалог подтверждения.
 Решение: разблокировать телефон перед `adb install`, принять диалог вручную.
 
+**W7 — ubrn TS-форматирование падает на Windows (`Os error 193`):**
+ubrn (0.31.0-2) вызывает `Command::new("<root>/node_modules/.bin/prettier")` без расширения — на Windows это bash-shim, не PE-binary. `CreateProcess` падает с error code 193 («%1 is not a valid Win32 application»). Stack: `ubrn_bindgen::bindings::gen_typescript::util::format_directory` → `ubrn_common::commands::run_cmd_quietly`. Upstream: `jhugman/uniffi-bindgen-react-native#302` (open).
+Причина: `fmt::prettier()` использует `resolve(out_dir, "node_modules/.bin/prettier")` без extension lookup, в отличие от `clang_format()` в том же файле который использует `which::which("clang-format")`.
+Решение: после каждого `npm install` удалять bash-shim:
+```bash
+rm node_modules/.bin/prettier
+```
+(`prettier.cmd` и `prettier.ps1` оставлять — другие тулы их используют через PATH). ubrn попадает в else-ветку с `eprintln!("No prettier found...")` — graceful fallback, bindings генерируются без TS-форматирования. Prettier можно прогнать вручную после генерации: `npx prettier --write packages/react-native-rustok-bridge/src/`.
+TODO upstream: PR в ubrn заменив `resolve(...)` на `which::which("prettier")` для Windows-aware extension lookup.
+
+**W8 — ubrn android scaffold с двумя AGP 8.x блокерами:**
+`packages/react-native-rustok-bridge/android/build.gradle` (генерируется ubrn) содержит две несовместимости с AGP 8.x:
+1. Внутри `supportsNamespace()` ветки (AGP 7.3+) указано `manifest.srcFile "src/main/AndroidManifestNew.xml"` — этот файл ubrn НЕ генерирует, есть только `AndroidManifest.xml`.
+2. `AndroidManifest.xml` содержит `package="com.rustok.bridge"` — error в AGP 8.x когда `namespace` объявлен в build.gradle (deprecated с AGP 7.4, removed/error в 8.0+).
+У нас AGP 8.12.0 → оба блокера активны → Gradle assemble упадёт без правки.
+Решение (применять при первом smoke build, persists через `ubrn:clean` так как scaffold-файлы не нюкаются):
+- `packages/react-native-rustok-bridge/android/build.gradle`: убрать блок `sourceSets { main { manifest.srcFile "src/main/AndroidManifestNew.xml" } }` внутри namespace-ветки — AGP default = `src/main/AndroidManifest.xml`.
+- `packages/react-native-rustok-bridge/android/src/main/AndroidManifest.xml`: убрать атрибут `package="com.rustok.bridge"` (namespace остаётся в build.gradle).
+TODO upstream: report bug в ubrn о несоответствии scaffold и AGP 8 conventions.
+
+**W9 — RN gradle plugin paths assume `<app>/node_modules` (npm workspaces hoist в `<repo-root>/node_modules`):**
+RN gradle plugin defaults жёстко прибиты к `<app>/node_modules/...` (для классической single-package структуры). В npm workspaces deps хойстятся в `<repo-root>/node_modules/`, поэтому defaults не находят файлы. Два failure modes:
+1. `mobile/android/settings.gradle:1` — `pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }` resolve'ится к `mobile/node_modules/@react-native/gradle-plugin` (не существует). Error: «Included build does not exist».
+2. После фикса (1), `apply plugin: "com.facebook.react.rootproject"` падает с «`mobile/node_modules/react-native/ReactAndroid/gradle.properties` does not exist» — RN root project plugin читает `reactNativeDir` extension с convention `root.dir("node_modules/react-native")` (см. `@react-native/gradle-plugin/.../ReactExtension.kt:36-39`).
+Решение (две правки):
+- `mobile/android/settings.gradle`: оба `includeBuild` пути `../node_modules/...` → `../../node_modules/...` (settings.gradle лежит в `mobile/android/`, `../..` = repo root).
+- `mobile/android/app/build.gradle`: внутри `react { ... }` блока добавить overrides:
+  ```groovy
+  reactNativeDir = file("../../../node_modules/react-native")
+  codegenDir = file("../../../node_modules/@react-native/codegen")
+  cliFile = file("../../../node_modules/react-native/cli.js")
+  ```
+  (`app/build.gradle` лежит в `mobile/android/app/`, `../../..` = repo root.) `react { reactNativeDir }` propagat'ится в root project plugin через `ReactPlugin.kt:67`.
+Verify: `gradlew app:assembleDebug` → `BUILD SUCCESSFUL`, APK содержит `lib/{arm64-v8a,x86_64}/libreact-native-rustok-bridge.so`.
+
 ## 10.4 Performance baseline
-- Cold call latency: TBD ms
-- Hot call latency: TBD ms
-- APK size: TBD MB
-- IPA size: TBD MB
+- Cold call latency: TBD ms (M4 — E2E на устройстве)
+- Hot call latency: TBD ms (M4)
+- APK size (debug, all 4 ABIs): **144 MB** (M3, includes libreactnative ~22 MB × 4 ABIs + librustok bridge ~12 MB × 2 ABIs + Hermes runtime). Release builds с ABI splits будут существенно меньше.
+- Cold build time (Gradle assembleDebug, hot Rust + npm cache): **3m 35s** (M3)
+- IPA size: TBD MB (M5 — на Mac)
 
 ---
 

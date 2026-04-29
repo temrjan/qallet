@@ -10,9 +10,9 @@ license.workspace = true
 workspace = true
 
 [lib]
-crate-type = ["cdylib", "staticlib", "rlib"]
+crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 rustok-core = { path = "../core" }
-uniffi = "0.28"
+uniffi = "=0.31.0"
 thiserror = { workspace = true }
