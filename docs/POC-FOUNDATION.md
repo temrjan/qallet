@@ -27,25 +27,25 @@
 
 ## 1.1 Что считается "POC пройден" (binary checklist)
 
-- [ ] Создана ветка `feat/native-rn-poc` (или новый репо `rustok-mobile-poc` — решить в день 1)
-- [ ] `crates/rustok-mobile-bindings/` существует, компилируется через `cargo build --release`
-- [ ] uniffi экспортирует функцию `generate_mnemonic() -> String` (обёртка над существующим `rustok-core`)
-- [ ] `mobile/` директория содержит React Native 0.76+ проект (New Architecture включена по умолчанию)
-- [ ] Auto-generated TS bindings в `mobile/src/native/rustok.ts` (типизированный wrapper)
-- [ ] Auto-generated Kotlin TurboModule в `mobile/android/.../`
-- [ ] Auto-generated Swift TurboModule в `mobile/ios/.../`
+- [x] Ветка создана и merged: `feat/m3-uniffi-rn-bridge` → `main` через PR #10 (commit `f4580c1`, 2026-04-29)
+- [x] `crates/rustok-mobile-bindings/` существует, компилируется через `cargo build --release` (M1)
+- [x] uniffi экспортирует `generate_mnemonic() -> Result<String, BindingsError>` (обёртка над `rustok_core::keyring::LocalKeyring::random_mnemonic_phrase`) (M1)
+- [x] `mobile/` директория содержит React Native **0.85.2** проект (New Architecture default) (M2)
+- [x] Auto-generated TS bindings — расположение `packages/react-native-rustok-bridge/src/` (изменено в M3 из-за npm workspaces architecture; spirit fulfilled, не letter `mobile/src/native/`) (M3)
+- [x] Auto-generated Kotlin TurboModule — расположение `packages/react-native-rustok-bridge/android/src/main/java/com/rustok/bridge/` (M3)
+- [ ] Auto-generated Swift TurboModule в `packages/react-native-rustok-bridge/ios/...` (M5 — на Mac)
 - [x] **Android APK сборка:** `gradlew app:assembleDebug` проходит, `librustok bridge .so` для arm64-v8a + x86_64 в APK (M3, Шаг 7)
 - [ ] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI (M4)
-- [ ] **iPhone физ. устройство:** IPA устанавливается через TestFlight или dev signing → нажатие кнопки → BIP-39 фраза в UI
-- [ ] Mnemonic валидируется через `bip39` library (12 слов, корректный checksum)
-- [ ] `docs/POC-FOUNDATION.md` обновлён секцией §10 "Reproduce steps" (final версия с реальными командами после прохождения)
+- [ ] **iPhone физ. устройство:** IPA устанавливается → нажатие кнопки → BIP-39 фраза в UI (M5)
+- [ ] Mnemonic валидируется через `bip39` library (12 слов, корректный checksum) (M4 — JS-side validation после device run)
+- [x] `docs/POC-FOUNDATION.md` §10 обновлён — versions §10.1, reproduction §10.2, known issues W7-W9 §10.3, performance baseline §10.4 (M3 close)
 
 ## 1.2 Что НЕ входит в POC (явные exclusions)
 
 - ❌ Полноценный UI — только Hello World с одной кнопкой
 - ❌ Все 22 команды rustok-core — только `generate_mnemonic`
 - ❌ Async functions через uniffi (sync только; async — Phase 2)
-- ❌ Сложные типы (Result, Record, Enum) — только `String` возврат
+- ⚠ Result/Error через uniffi — **РАЗРЕШЕНО** (M3 использует `Result<String, BindingsError>` + `#[derive(uniffi::Error)]` enum, см. `crates/rustok-mobile-bindings/src/lib.rs:30`); Record и Enum с data variants — Phase 2
 - ❌ Биометрия / Keychain / Camera — Phase 4-5
 - ❌ Navigation / multi-screen — Phase 3
 - ❌ NativeWind / стилизация — Phase 3
@@ -455,7 +455,89 @@ npx uniffi-bindgen-react-native generate \
 - Java: OpenJDK 21.0.10 (Android Studio bundled)
 
 ## 10.2 Step-by-step reproduction
-TBD после Milestone 6.
+
+Воспроизведение состояния M3 close (commit `f4580c1` на `main`).
+
+### Pre-requisites (см. также §2.1)
+
+| Tool | Version | Установка |
+|------|---------|-----------|
+| Node | 24+ | nvm-windows |
+| npm | 11+ | вместе с Node |
+| Rust stable | 1.85+ | rustup |
+| cargo-ndk | 4.1.2 | `cargo install cargo-ndk` |
+| Rust Android targets | aarch64-linux-android, x86_64-linux-android | `rustup target add aarch64-linux-android x86_64-linux-android` |
+| Android Studio | 2024+ | официальный сайт |
+| Android SDK Platform | 36 (compileSdk + targetSdk; minSdk = 24) | через SDK Manager |
+| Android NDK | 27.1.12297006 | auto-installed Gradle |
+| Java | 17 или 21 (OpenJDK) | Android Studio bundled |
+
+### Шаги
+
+```bash
+# 1. Clone + checkout main (M3 уже merged через PR #10)
+git clone git@github.com:temrjan/rustok.git
+cd rustok                                        # CRITICAL: путь ASCII-only (W1)
+git checkout main
+git log --oneline -3                             # ожидаем: f4580c1 Merge PR #10
+
+# 2. Verify Rust workspace builds
+cargo test --workspace                           # 38 unit + 2 doctests pass
+
+# 3. Manual: создать mobile/android/local.properties (gitignored, W4)
+#    Содержит путь к Android SDK
+echo "sdk.dir=C\:\\Users\\<user>\\AppData\\Local\\Android\\Sdk" \
+     > mobile/android/local.properties
+
+# 4. NPM install (root — workspaces hoist deps в <root>/node_modules)
+npm install                                      # 864+ packages, 30-60s
+
+# 5. W7 workaround: удалить prettier bash-shim после каждого npm install
+#    Иначе ubrn:android упадёт с Os error 193 на format_directory step
+rm node_modules/.bin/prettier                    # оставить .cmd / .ps1
+
+# 6. Generate uniffi bridge (Android only; iOS — на Mac в M5)
+ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.1.12297006" \
+  npm run ubrn:android --workspace=react-native-rustok-bridge -- --release
+# Cold cache: ~5-10 min (rustok-core + alloy + revm — heavy compile)
+# Warm cache: ~30s
+
+# 7. Verify generated artifacts
+ls packages/react-native-rustok-bridge/android/src/main/jniLibs/
+# expect: arm64-v8a/librustok_mobile_bindings.a
+#         x86_64/librustok_mobile_bindings.a
+
+# 8. Gradle assembleDebug (PowerShell на Windows из W3)
+cd mobile/android
+.\gradlew.bat app:assembleDebug                  # ~3-4 min cold, ~5-30s warm
+
+# 9. Verify APK
+ls app/build/outputs/apk/debug/app-debug.apk     # ~144 MB
+unzip -l app/build/outputs/apk/debug/app-debug.apk | grep librustok
+# expect: lib/arm64-v8a/libreact-native-rustok-bridge.so
+#         lib/x86_64/libreact-native-rustok-bridge.so
+
+# 10. (Optional) TypeScript verify
+cd ../../mobile && npx tsc --noEmit              # clean, exit 0
+```
+
+### Time on cold cache vs warm
+
+| Step | Cold | Warm |
+|------|------|------|
+| `npm install` | ~60s | ~10s |
+| `ubrn:android --release` | ~5-10 min | ~30s |
+| `gradle assembleDebug` | ~3-4 min | ~5-30s |
+| **Total full reproduction** | ~10-15 min | ~1-2 min |
+
+Heavy cold-time consumers: rustok-core dependencies (alloy-rs, revm, tokio) — ~5-7 min compile в release mode под Android targets.
+
+### Known workarounds (см. §10.3)
+
+- W1-W6 (M2 era): non-ASCII path, Gradle 9, gradlew.bat, local.properties, adb reverse, Xiaomi install
+- W7 (M3): prettier bash-shim removal after npm install (см. шаг 5 выше)
+- W8 (M3): ubrn android scaffold AGP 8 fix — applied в commit `1f2fc2d` для bridge package; persists через `ubrn:clean`
+- W9 (M3): RN gradle plugin path overrides — applied в commit `e531e9a` (`mobile/android/settings.gradle`) и `mobile/android/app/build.gradle` (`reactNativeDir`/`codegenDir`/`cliFile`)
 
 ## 10.3 Known issues / workarounds (обновляется по ходу)
 

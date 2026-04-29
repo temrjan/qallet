@@ -8,7 +8,7 @@
 
 Production Ethereum wallet (Android + iOS). React Native 0.85.2 + uniffi-bindgen-react-native + Rust core (rustok-core + txguard). Мигрировали с Tauri+Leptos на 2026-04-28.
 
-**Текущая фаза:** Phase 1 — Foundation. M1+M2 done, M3 next (uniffi-bindgen-react-native setup).
+**Текущая фаза:** Phase 1 — Foundation. **M1+M2+M3 closed (2026-04-29 — PR #10 merged).** M4 next (Android E2E на физ. устройстве). Working branch: `main`. См. `docs/M3-RETROSPECTIVE.md` для итогов M3.
 
 ## Start every session with
 

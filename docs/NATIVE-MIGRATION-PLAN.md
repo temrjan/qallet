@@ -21,10 +21,10 @@
 ## A. TL;DR за 30 секунд
 
 - **Проект:** Rustok — Ethereum wallet с собственным Rust core (rustok-core + txguard)
-- **Где живёт:** `C:\Claude\projects\Дизайн\rustok\`
+- **Где живёт:** `C:\Claude\projects\rustok\` (ASCII-only после M2 path fix)
 - **Что делаем:** Мигрируем UI с Tauri+Leptos (WebView) на **React Native + uniffi-bindgen-react-native** (native UI, Rust core переиспользуется)
 - **Что НЕ делаем:** WebView в любой форме (Tauri+React план отменён 2026-04-28)
-- **Текущая фаза:** Phase 1 — Foundation (first end-to-end Rust→RN call). См. `docs/POC-FOUNDATION.md`
+- **Текущая фаза:** Phase 1 — Foundation. **M1+M2+M3 closed (2026-04-29 — PR #10 merged).** M4 next (Android E2E на физ. устройстве). См. `docs/POC-FOUNDATION.md` и `docs/M3-RETROSPECTIVE.md`.
 - **Платформы:** Android + iOS only, desktop deferred
 - **Mainnet timeline:** свободный, фокус на качестве
 
