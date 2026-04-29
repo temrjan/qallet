@@ -3,6 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "description": "TurboModule bridging rustok-mobile-bindings into React Native via uniffi.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/temrjan/rustok.git",
+    "directory": "packages/react-native-rustok-bridge"
+  },
   "main": "src/index.tsx",
   "react-native": "src/index.tsx",
   "types": "src/index.tsx",
