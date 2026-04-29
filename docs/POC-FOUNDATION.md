@@ -438,16 +438,18 @@ npx uniffi-bindgen-react-native generate \
 
 ## 10.1 Final versions (частично — обновляется по мере прохождения milestones)
 - React Native: 0.85.2
-- uniffi: 0.28
-- uniffi-bindgen-react-native: TBD (M3)
-- cargo-ndk: TBD
-- Android NDK: 27.1.12297006 (auto-установлен Gradle)
+- uniffi: `=0.31.0` (exact pin, aligned with ubrn workspace)
+- uniffi-bindgen-react-native: `0.31.0-2` (npm latest)
+- cargo-ndk: 4.1.2 (`cargo install cargo-ndk`)
+- Rust Android targets: `aarch64-linux-android`, `x86_64-linux-android` (`rustup target add ...`)
+- Android NDK: 27.1.12297006 (auto-установлен Gradle; для cargo-ndk выставлять inline `ANDROID_NDK_HOME` чтобы синхронизировать toolchain)
+- AGP: 8.12.0 (resolved by RN gradle plugin)
 - Gradle: 8.13 (не 9.x!)
 - Android Build-Tools: 36.0.0
-- Android Platform: 36
+- Android Platform: 36 (compileSdk + targetSdk; minSdk = 24)
 - Xcode: TBD (M5)
 - Node: 24.11.1
-- Java: OpenJDK 21 (Android Studio bundled)
+- Java: OpenJDK 21.0.10 (Android Studio bundled)
 
 ## 10.2 Step-by-step reproduction
 TBD после Milestone 6.
@@ -477,6 +479,26 @@ Gradle не находит Android SDK без `mobile/android/local.properties`.
 **W6 — Установка APK отклоняется (Xiaomi):**
 `INSTALL_FAILED_USER_RESTRICTED` — на экране появляется диалог подтверждения.
 Решение: разблокировать телефон перед `adb install`, принять диалог вручную.
+
+**W7 — ubrn TS-форматирование падает на Windows (`Os error 193`):**
+ubrn (0.31.0-2) вызывает `Command::new("<root>/node_modules/.bin/prettier")` без расширения — на Windows это bash-shim, не PE-binary. `CreateProcess` падает с error code 193 («%1 is not a valid Win32 application»). Stack: `ubrn_bindgen::bindings::gen_typescript::util::format_directory` → `ubrn_common::commands::run_cmd_quietly`. Upstream: `jhugman/uniffi-bindgen-react-native#302` (open).
+Причина: `fmt::prettier()` использует `resolve(out_dir, "node_modules/.bin/prettier")` без extension lookup, в отличие от `clang_format()` в том же файле который использует `which::which("clang-format")`.
+Решение: после каждого `npm install` удалять bash-shim:
+```bash
+rm node_modules/.bin/prettier
+```
+(`prettier.cmd` и `prettier.ps1` оставлять — другие тулы их используют через PATH). ubrn попадает в else-ветку с `eprintln!("No prettier found...")` — graceful fallback, bindings генерируются без TS-форматирования. Prettier можно прогнать вручную после генерации: `npx prettier --write packages/react-native-rustok-bridge/src/`.
+TODO upstream: PR в ubrn заменив `resolve(...)` на `which::which("prettier")` для Windows-aware extension lookup.
+
+**W8 — ubrn android scaffold с двумя AGP 8.x блокерами:**
+`packages/react-native-rustok-bridge/android/build.gradle` (генерируется ubrn) содержит две несовместимости с AGP 8.x:
+1. Внутри `supportsNamespace()` ветки (AGP 7.3+) указано `manifest.srcFile "src/main/AndroidManifestNew.xml"` — этот файл ubrn НЕ генерирует, есть только `AndroidManifest.xml`.
+2. `AndroidManifest.xml` содержит `package="com.rustok.bridge"` — error в AGP 8.x когда `namespace` объявлен в build.gradle (deprecated с AGP 7.4, removed/error в 8.0+).
+У нас AGP 8.12.0 → оба блокера активны → Gradle assemble упадёт без правки.
+Решение (применять при первом smoke build, persists через `ubrn:clean` так как scaffold-файлы не нюкаются):
+- `packages/react-native-rustok-bridge/android/build.gradle`: убрать блок `sourceSets { main { manifest.srcFile "src/main/AndroidManifestNew.xml" } }` внутри namespace-ветки — AGP default = `src/main/AndroidManifest.xml`.
+- `packages/react-native-rustok-bridge/android/src/main/AndroidManifest.xml`: убрать атрибут `package="com.rustok.bridge"` (namespace остаётся в build.gradle).
+TODO upstream: report bug в ubrn о несоответствии scaffold и AGP 8 conventions.
 
 ## 10.4 Performance baseline
 - Cold call latency: TBD ms
