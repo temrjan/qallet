@@ -1,0 +1,9 @@
+rust:
+  directory: ../..
+  manifestPath: crates/rustok-mobile-bindings/Cargo.toml
+
+android:
+  targets:
+    - arm64-v8a
+    - x86_64
+  apiLevel: 24
