@@ -1,0 +1,8 @@
+{
+  "name": "rustok-monorepo",
+  "private": true,
+  "workspaces": [
+    "mobile",
+    "packages/*"
+  ]
+}
