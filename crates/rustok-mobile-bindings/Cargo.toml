@@ -10,7 +10,7 @@ license.workspace = true
 workspace = true
 
 [lib]
-crate-type = ["cdylib", "staticlib", "rlib"]
+crate-type = ["staticlib", "rlib"]
 
 [dependencies]
 rustok-core = { path = "../core" }
