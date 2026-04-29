@@ -109,4 +109,65 @@ Decision required at: Phase 2 start, синхронно с C2.
 
 ---
 
+# Phase 4-5 Production Polish
+
+> **Контекст:** Items найденные в M3 review, которые НЕ блокируют POC / Phase 2 / Phase 3, но требуются перед public release (Phase 4-5 prep). Низкий приоритет, но трекать.
+
+## P1. `peerDependencies: "*"` — tighten перед npm publish или мульти-app консамерами
+
+Source: `packages/react-native-rustok-bridge/package.json:23-26`
+```json
+"peerDependencies": {
+  "react": "*",
+  "react-native": "*"
+}
+```
+
+Проблема: `"*"` = «любая версия react/react-native подойдёт», но bridge компилируется против конкретного RN ABI (TurboModule layout, Hermes runtime, codegen output). Установка в проект с RN 0.74 (старая ABI) silently сломается в runtime — без warning от npm/yarn о mismatch.
+
+Текущий monorepo single-consumer scenario (`mobile/` пинит `react-native: 0.85.2`) контролируем — никаких проблем. Но:
+- Если когда-либо публикуем bridge в npm registry
+- Если используем bridge в другом app в этом monorepo с другой RN версией
+
+→ required tighten.
+
+### Phase 4-5 fix
+
+```json
+"peerDependencies": {
+  "react": ">=19.0.0 <20.0.0",
+  "react-native": ">=0.85.0 <0.86.0"
+}
+```
+
+Range отражает наш ABI-compatibility window. При major bump RN (0.86+) — обновлять explicitly с testing.
+
+---
+
+## P2. Add `armeabi-v7a` Android target
+
+Source: `packages/react-native-rustok-bridge/ubrn.config.yaml`
+```yaml
+android:
+  targets: [arm64-v8a, x86_64]
+```
+
+Проблема: текущий list покрывает modern ARM64 phones + x86_64 emulator, но игнорирует **`armeabi-v7a`** (32-bit ARM). По данным Android distribution dashboard, 32-bit устройства составляют ~3-5% активных Android — преимущественно в developing markets и budget tier.
+
+Trade-off для M3-итерации: сейчас минимум targets ускоряет cross-compile cycle (~12 sec на target вместо ~18 sec для трёх). Production prep — добавить.
+
+### Phase 4-5 fix
+
+```yaml
+android:
+  targets: [arm64-v8a, armeabi-v7a, x86_64]
+  apiLevel: 24
+```
+
+Опционально `i686-linux-android` (32-bit emulator) — но 32-bit emulators практически мёртвы, не нужно.
+
+CI implication: cross-compile time увеличится на ~20-30%. APK size увеличится на ~12 MB (один extra .so per ABI). Trade-off оправдан для production user coverage.
+
+---
+
 **Конец документа.**
