@@ -1,7 +1,7 @@
 {
   "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
-    "rootDir": ".",
+    "rootDir": "src",
     "outDir": "lib"
   },
   "include": ["src"]
