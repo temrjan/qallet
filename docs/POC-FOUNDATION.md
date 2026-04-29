@@ -53,12 +53,14 @@
 
 ## 1.3 Что доказывает успешный POC
 
-1. **uniffi-bindgen-react-native работает с нашим Rust core** — нет фундаментальных блокеров
-2. **Build pipeline на Windows + Mac работает** — нет environment-specific issues
-3. **Физические устройства принимают builds** — нет signing/policy issues
-4. **Performance acceptable** — латентность Rust → JS вызова <100ms на cold call
+1. **uniffi-bindgen-react-native работает с нашим Rust core** — нет фундаментальных блокеров (✓ M3 — bindings генерируются, autolinking работает, `.so` в APK)
+2. **Build pipeline на Windows + Mac работает** — нет environment-specific issues (✓ Windows M3 — known issues W7/W8/W9 в §10.3; ☐ Mac M5)
+3. **Физические устройства принимают builds** — нет signing/policy issues (☐ Android M4, iOS M5)
+4. **Performance acceptable** — латентность Rust → JS вызова <100ms на cold call (☐ M4 E2E)
+5. **Code review показывает что архитектурные deferrals понятны и зафиксированы** — `/rust-review` + `/typescript-review` на закрытии каждого milestone; observations выше LOW → `docs/PHASE-2-CONSTRAINTS.md` (✓ M3 review pass: 1 HIGH, 2 MEDIUM, 2 LOW; LOW#1 audit отдельно, HIGH+MEDIUM в constraints)
 
 После успешного POC мы committed на Native путь и стартуем Phase 2 (Core API extraction).
+Phase 2 entry condition: items в `docs/PHASE-2-CONSTRAINTS.md` имеют документированные решения.
 
 ---
 
