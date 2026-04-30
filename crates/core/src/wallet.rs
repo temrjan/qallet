@@ -77,10 +77,12 @@
 
 use std::path::{Path, PathBuf};
 
-use alloy_primitives::Address;
+use alloy_primitives::{Address, U256};
 use zeroize::Zeroizing;
 
 use crate::keyring::{KeyringError, LocalKeyring, decrypt_key, encrypt_key};
+use crate::provider::{MultiProvider, UnifiedBalance};
+use crate::send::{self, SendError, SendPreview, SendResult};
 
 /// Opaque wallet identifier. Currently the Ethereum address rendered via
 /// `alloy_primitives::Address`'s `Display` impl — EIP-55 mixed-case hex
@@ -148,6 +150,14 @@ pub enum WalletServiceError {
     /// QR code SVG rendering failed.
     #[error("qr generation failed: {0}")]
     QrGeneration(String),
+
+    /// Wraps send-domain failures (txguard block, RPC, transaction signing).
+    /// Display delegates via `transparent`; sensitive context could surface in
+    /// `SendError::Provider` / `SendError::Transaction` String payloads — same
+    /// baseline as commit 3 commands.rs error mapping. TODO commit 9: mirror
+    /// to a structured `SendErrorKind` for FFI without untrusted strings.
+    #[error(transparent)]
+    Send(#[from] SendError),
 }
 
 impl From<std::io::Error> for WalletServiceError {
@@ -390,6 +400,73 @@ impl WalletService {
             .ok_or(WalletServiceError::WalletNotUnlocked)?;
         let uri = format!("ethereum:{address:#x}");
         render_qr_svg(&uri)
+    }
+
+    /// Fetch the unified multi-chain balance for the currently-unlocked
+    /// wallet. Errors with [`WalletServiceError::WalletNotUnlocked`] when
+    /// locked. Provider-side per-chain failures are surfaced inside
+    /// [`UnifiedBalance::errors`] (non-fatal).
+    pub async fn balance(
+        &self,
+        provider: &MultiProvider,
+    ) -> Result<UnifiedBalance, WalletServiceError> {
+        let address = self.locked_address().await?;
+        Ok(provider.unified_balance(address).await)
+    }
+
+    /// Preview a native ETH transfer from the currently-unlocked wallet:
+    /// txguard analysis + cheapest-route selection. Does NOT broadcast.
+    /// Errors with [`WalletServiceError::WalletNotUnlocked`] when locked,
+    /// or [`WalletServiceError::Send`] for txguard-block / routing failure.
+    pub async fn preview_send(
+        &self,
+        provider: &MultiProvider,
+        to: Address,
+        amount_wei: U256,
+    ) -> Result<SendPreview, WalletServiceError> {
+        let from = self.locked_address().await?;
+        Ok(send::preview_send(provider, from, to, amount_wei).await?)
+    }
+
+    /// Atomic preview-then-broadcast for a native ETH transfer from the
+    /// currently-unlocked wallet. The signer is cloned at entry; subsequent
+    /// state changes (e.g. background-timer auto-lock) do not abort the
+    /// in-flight execute (the cloned `PrivateKeySigner` owns its key bytes
+    /// and zeroizes on drop).
+    ///
+    /// Errors with [`WalletServiceError::WalletNotUnlocked`] when locked,
+    /// or [`WalletServiceError::Send`] for txguard-block / routing /
+    /// broadcast failure.
+    pub async fn execute_send(
+        &self,
+        provider: &MultiProvider,
+        to: Address,
+        amount_wei: U256,
+    ) -> Result<SendResult, WalletServiceError> {
+        let signer = self
+            .state
+            .lock()
+            .await
+            .as_ref()
+            .map(|s| s.keyring.signer().clone())
+            .ok_or(WalletServiceError::WalletNotUnlocked)?;
+        let from = signer.address();
+        let preview = send::preview_send(provider, from, to, amount_wei).await?;
+        let result = send::execute_send(provider, signer, to, amount_wei, &preview.route).await?;
+        Ok(result)
+    }
+
+    /// Brief lock + copy of the typed [`Address`] of the currently-unlocked
+    /// wallet. Avoids the [`WalletId`] (String) round-trip for callers that
+    /// already need an `Address`. Returns
+    /// [`WalletServiceError::WalletNotUnlocked`] when locked.
+    async fn locked_address(&self) -> Result<Address, WalletServiceError> {
+        self.state
+            .lock()
+            .await
+            .as_ref()
+            .map(|s| s.keyring.address())
+            .ok_or(WalletServiceError::WalletNotUnlocked)
     }
 }
 
@@ -860,6 +937,36 @@ mod tests {
     async fn current_qr_svg_when_locked_errors() {
         let (svc, _tmp) = service();
         let result = svc.current_qr_svg().await;
+        assert!(matches!(result, Err(WalletServiceError::WalletNotUnlocked)));
+    }
+
+    #[tokio::test]
+    async fn balance_when_locked_returns_wallet_not_unlocked() {
+        let (svc, _tmp) = service();
+        let provider = MultiProvider::default_chains();
+        let result = svc.balance(&provider).await;
+        assert!(matches!(result, Err(WalletServiceError::WalletNotUnlocked)));
+    }
+
+    #[tokio::test]
+    async fn preview_send_when_locked_returns_wallet_not_unlocked() {
+        let (svc, _tmp) = service();
+        let provider = MultiProvider::default_chains();
+        let to: Address = "0x0000000000000000000000000000000000000001"
+            .parse()
+            .unwrap();
+        let result = svc.preview_send(&provider, to, U256::from(1u64)).await;
+        assert!(matches!(result, Err(WalletServiceError::WalletNotUnlocked)));
+    }
+
+    #[tokio::test]
+    async fn execute_send_when_locked_returns_wallet_not_unlocked() {
+        let (svc, _tmp) = service();
+        let provider = MultiProvider::default_chains();
+        let to: Address = "0x0000000000000000000000000000000000000001"
+            .parse()
+            .unwrap();
+        let result = svc.execute_send(&provider, to, U256::from(1u64)).await;
         assert!(matches!(result, Err(WalletServiceError::WalletNotUnlocked)));
     }
 }

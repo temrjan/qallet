@@ -221,19 +221,15 @@ pub async fn get_wallet_balance(
     wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
 ) -> Result<UnifiedBalance, String> {
-    let addr_str = wallet_service
-        .current_address()
-        .await
-        .ok_or_else(|| "wallet not unlocked".to_string())?;
-    let addr: Address = addr_str
-        .parse()
-        .map_err(|e| format!("invalid address: {e}"))?;
     let provider = state
         .provider
         .lock()
         .map_err(|e| format!("state lock: {e}"))?
         .clone();
-    let balance = provider.unified_balance(addr).await;
+    let balance = wallet_service
+        .balance(&provider)
+        .await
+        .map_err(format_wallet_err)?;
     Ok(balance.into())
 }
 
@@ -244,13 +240,6 @@ pub async fn preview_send(
     wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
 ) -> Result<SendPreviewDto, String> {
-    let from_str = wallet_service
-        .current_address()
-        .await
-        .ok_or_else(|| "wallet not unlocked".to_string())?;
-    let from: Address = from_str
-        .parse()
-        .map_err(|e| format!("invalid address: {e}"))?;
     let to_addr: Address = to.parse().map_err(|e| format!("invalid address: {e}"))?;
     let amount_wei = rustok_core::amount::parse_eth_amount(&amount).map_err(|e| e.to_string())?;
 
@@ -259,9 +248,10 @@ pub async fn preview_send(
         .lock()
         .map_err(|e| format!("state lock: {e}"))?
         .clone();
-    let preview = rustok_core::send::preview_send(&provider, from, to_addr, amount_wei)
+    let preview = wallet_service
+        .preview_send(&provider, to_addr, amount_wei)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(format_wallet_err)?;
 
     Ok(preview_to_dto(preview, to_addr, amount_wei))
 }
@@ -273,12 +263,6 @@ pub async fn send_eth(
     wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
 ) -> Result<SendResponseDto, String> {
-    let signer = wallet_service
-        .current_signer()
-        .await
-        .ok_or_else(|| "wallet not unlocked".to_string())?;
-    let from = signer.address();
-
     let to_addr: Address = to.parse().map_err(|e| format!("invalid address: {e}"))?;
     let amount_wei = rustok_core::amount::parse_eth_amount(&amount).map_err(|e| e.to_string())?;
 
@@ -287,16 +271,22 @@ pub async fn send_eth(
         .lock()
         .map_err(|e| format!("state lock: {e}"))?
         .clone();
-    let preview = rustok_core::send::preview_send(&provider, from, to_addr, amount_wei)
+    let result = wallet_service
+        .execute_send(&provider, to_addr, amount_wei)
         .await
-        .map_err(|e| e.to_string())?;
-
-    let result =
-        rustok_core::send::execute_send(&provider, signer, to_addr, amount_wei, &preview.route)
-            .await
-            .map_err(|e| e.to_string())?;
+        .map_err(format_wallet_err)?;
 
     Ok(send_result_to_dto(result))
+}
+
+#[tauri::command]
+pub fn get_chain_id(state: State<'_, AppState>) -> Result<u64, String> {
+    state
+        .provider
+        .lock()
+        .map_err(|e| format!("state lock: {e}"))?
+        .primary_chain_id()
+        .ok_or_else(|| "no chains configured".to_string())
 }
 
 #[tauri::command]

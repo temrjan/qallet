@@ -81,6 +81,7 @@ pub fn run() {
             commands::get_transaction_history,
             commands::get_proxy_enabled,
             commands::set_proxy_enabled,
+            commands::get_chain_id,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

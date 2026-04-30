@@ -208,6 +208,21 @@ impl MultiProvider {
         &self.chains
     }
 
+    /// Primary chain id used as the routing context for the UI network badge.
+    ///
+    /// Returns the first configured chain. The constructors
+    /// [`Self::default_chains`], [`Self::mainnets_only`], and
+    /// [`Self::proxy_chains`] all order Ethereum (id=1) first by convention
+    /// (guarded by `default_chains_starts_with_ethereum` in `chains.rs`).
+    /// Returns `None` only for [`Self::new`] called with an empty `Vec`.
+    ///
+    /// Phase 7 introduces an explicit network selector with persisted state;
+    /// this getter is the placeholder until then.
+    #[must_use]
+    pub fn primary_chain_id(&self) -> Option<u64> {
+        self.chains.first().map(|c| c.id)
+    }
+
     /// Get balances as a map of chain_id → balance.
     pub async fn balance_map(&self, address: Address) -> HashMap<u64, U256> {
         let unified = self.unified_balance(address).await;
@@ -518,5 +533,23 @@ mod tests {
             err,
             ProviderError::ChainNotFound { chain_id: 999999 }
         ));
+    }
+
+    #[test]
+    fn primary_chain_id_returns_first_for_default_chains() {
+        let provider = MultiProvider::default_chains();
+        assert_eq!(provider.primary_chain_id(), Some(1));
+    }
+
+    #[test]
+    fn primary_chain_id_returns_first_for_mainnets_only() {
+        let provider = MultiProvider::mainnets_only();
+        assert_eq!(provider.primary_chain_id(), Some(1));
+    }
+
+    #[test]
+    fn primary_chain_id_none_for_empty() {
+        let provider = MultiProvider::new(Vec::new());
+        assert_eq!(provider.primary_chain_id(), None);
     }
 }
