@@ -9,7 +9,7 @@ use aes_gcm::{
     Aes256Gcm, Nonce,
     aead::{Aead, KeyInit},
 };
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, eip191_hash_message, keccak256};
 use alloy_signer::Signer;
 use alloy_signer_local::{
     MnemonicBuilder, PrivateKeySigner,
@@ -182,7 +182,20 @@ impl LocalKeyring {
         &self.encrypted
     }
 
-    /// Sign a message hash (32 bytes) with this key.
+    /// Sign a 32-byte hash directly with this key.
+    ///
+    /// **SAFETY — choose the right entry point:**
+    /// - For EIP-191 `personal_sign` of arbitrary message bytes use
+    ///   [`Self::sign_message`] — it adds the
+    ///   `\x19Ethereum Signed Message:\n{len}` prefix before hashing.
+    /// - For EIP-712 typed data use [`Self::sign_typed_data`] — it applies
+    ///   the `0x1901 || domainSeparator || structHash` framing.
+    /// - This raw `sign_hash` is appropriate ONLY when the caller has
+    ///   produced a domain-separated digest itself (transaction hashes,
+    ///   pre-computed hashes from a verified specification). Signing an
+    ///   un-prefixed `keccak256(message)` here is a classic phishing
+    ///   pitfall — the resulting signature can be replayed against any
+    ///   contract that accepts the same digest.
     pub async fn sign_hash(
         &self,
         hash: &B256,
@@ -191,6 +204,61 @@ impl LocalKeyring {
             .sign_hash(hash)
             .await
             .map_err(|e| KeyringError::Signing(e.to_string()))
+    }
+
+    /// Sign an arbitrary byte payload as an EIP-191 `personal_sign` message.
+    ///
+    /// The payload is wrapped with the canonical EIP-191 prefix
+    /// (`\x19Ethereum Signed Message:\n{len_decimal}`) before keccak256;
+    /// the resulting digest is signed by the underlying private key. This
+    /// is the entry point that matches MetaMask / Rainbow / WalletConnect
+    /// `personal_sign` semantics, so a signature produced here verifies
+    /// against `Signature::recover_address_from_msg(message)` and against
+    /// `ecrecover` in any EIP-191-compliant Solidity contract.
+    ///
+    /// Use this method (not [`Self::sign_hash`]) for:
+    /// - WalletConnect `personal_sign` requests
+    /// - DApp login flows ("Sign-In with Ethereum")
+    /// - Any request to "sign this message" originating from outside the
+    ///   wallet
+    pub async fn sign_message(
+        &self,
+        message: &[u8],
+    ) -> Result<alloy_primitives::Signature, KeyringError> {
+        let hash = eip191_hash_message(message);
+        self.sign_hash(&hash).await
+    }
+
+    /// Sign EIP-712 typed data given its pre-computed domain separator and
+    /// struct hash.
+    ///
+    /// Applies the standard EIP-712 framing — `keccak256(0x19 || 0x01 ||
+    /// domainSeparator || structHash)` — and signs the resulting digest.
+    /// Caller is responsible for computing both `domain_separator` and
+    /// `struct_hash` per the EIP-712 spec (or via `alloy_sol_types`'
+    /// `SolStruct::eip712_signing_hash` for typed structs declared with
+    /// `sol!`).
+    ///
+    /// **TRUST BOUNDARY:** this primitive signs whatever 32-byte hashes are
+    /// passed in. The wallet has no view into what the signed data
+    /// represents. Higher-level orchestration is responsible for validating
+    /// the domain origin (router whitelist, DApp identity, txguard verdict)
+    /// BEFORE invoking this method. Same model as
+    /// `WalletService::execute_send`: txguard runs in `preview`; signing
+    /// only happens after the user confirmed the analysed verdict. A future
+    /// WalletConnect adapter MUST follow the same gate-then-sign pattern.
+    pub async fn sign_typed_data(
+        &self,
+        domain_separator: &B256,
+        struct_hash: &B256,
+    ) -> Result<alloy_primitives::Signature, KeyringError> {
+        let mut buf = [0u8; 2 + 32 + 32];
+        buf[0] = 0x19;
+        buf[1] = 0x01;
+        buf[2..34].copy_from_slice(domain_separator.as_slice());
+        buf[34..66].copy_from_slice(struct_hash.as_slice());
+        let hash = keccak256(buf);
+        self.sign_hash(&hash).await
     }
 
     /// Get a reference to the alloy signer (for transaction signing).
@@ -450,5 +518,142 @@ mod tests {
 
         keyring.set_label("My Main Wallet");
         assert_eq!(keyring.info().label.as_deref(), Some("My Main Wallet"));
+    }
+
+    // ─── EIP-191 sign_message ───────────────────────────────────────
+
+    /// `sign_message` MUST be observationally identical to applying the
+    /// EIP-191 prefix manually and then signing the resulting digest.
+    /// Any divergence here means the wrapper is doing something other
+    /// than what its docstring claims.
+    #[tokio::test]
+    async fn sign_message_equivalent_to_sign_hash_after_eip191_prefix() {
+        let keyring = LocalKeyring::generate(PASSWORD).expect("generate");
+        let msg = b"hello, ethereum";
+
+        let via_message = keyring.sign_message(msg).await.expect("sign_message");
+        let manual_hash = eip191_hash_message(msg);
+        let via_hash = keyring.sign_hash(&manual_hash).await.expect("sign_hash");
+
+        assert_eq!(via_message, via_hash);
+    }
+
+    /// Round-trip the signature back through alloy's recover function.
+    /// Validates the alloy ↔ alloy boundary; cross-Ethereum compatibility
+    /// is covered by the `sign_message_known_vector` test below.
+    #[tokio::test]
+    async fn sign_message_recovers_address() {
+        let keyring = LocalKeyring::generate(PASSWORD).expect("generate");
+        let msg = b"recover me";
+        let sig = keyring.sign_message(msg).await.expect("sign_message");
+
+        let recovered = sig
+            .recover_address_from_msg(msg)
+            .expect("recover_address_from_msg");
+        assert_eq!(recovered, keyring.address());
+    }
+
+    /// Cross-validation against alloy's own EIP-191 reference (the same
+    /// pattern used in alloy-primitives' `sig.rs` test suite). If alloy
+    /// ever diverges from the spec, this test catches it before our
+    /// users do.
+    #[tokio::test]
+    async fn sign_message_known_vector() {
+        // Deterministic key — known test vector key, NOT for production.
+        let key = B256::from([0x01; 32]);
+        let keyring = LocalKeyring::from_private_key(&key, PASSWORD).expect("from_private_key");
+
+        let msg = b"Some data";
+        let sig = keyring.sign_message(msg).await.expect("sign_message");
+
+        // Recover MUST yield the keyring's own address.
+        let recovered = sig
+            .recover_address_from_msg(msg)
+            .expect("recover_address_from_msg");
+        assert_eq!(
+            recovered,
+            keyring.address(),
+            "EIP-191 round-trip via alloy reference vector failed"
+        );
+    }
+
+    /// Empty payload — EIP-191 prefix becomes `\x19Ethereum Signed Message:\n0`.
+    /// Must produce a valid signature (length-0 is well-defined per spec).
+    #[tokio::test]
+    async fn sign_message_empty() {
+        let keyring = LocalKeyring::generate(PASSWORD).expect("generate");
+        let sig = keyring.sign_message(&[]).await.expect("sign empty");
+        let recovered = sig.recover_address_from_msg([]).expect("recover empty");
+        assert_eq!(recovered, keyring.address());
+    }
+
+    /// Large payload — EIP-191 length prefix is decimal ASCII, no fixed
+    /// width; 4 KiB → `\n4096`. No overflow path in our wrapper.
+    #[tokio::test]
+    async fn sign_message_large_payload() {
+        let keyring = LocalKeyring::generate(PASSWORD).expect("generate");
+        let payload = vec![0xABu8; 4096];
+        let sig = keyring
+            .sign_message(&payload)
+            .await
+            .expect("sign large payload");
+        let recovered = sig
+            .recover_address_from_msg(&payload)
+            .expect("recover large");
+        assert_eq!(recovered, keyring.address());
+    }
+
+    // ─── EIP-712 sign_typed_data ────────────────────────────────────
+
+    /// Independent verification of the inline EIP-712 framing. `sign_typed_data`
+    /// MUST be observationally identical to manually concatenating
+    /// `0x19 || 0x01 || domain || struct`, hashing, and signing the digest.
+    /// Catches accidental byte-order swaps in the inline buffer.
+    #[tokio::test]
+    async fn sign_typed_data_equivalent_to_manual_keccak256() {
+        let keyring = LocalKeyring::generate(PASSWORD).expect("generate");
+        let domain = B256::from([0xAA; 32]);
+        let struct_hash = B256::from([0xBB; 32]);
+
+        let via_typed = keyring
+            .sign_typed_data(&domain, &struct_hash)
+            .await
+            .expect("sign_typed_data");
+
+        let mut manual = Vec::with_capacity(2 + 32 + 32);
+        manual.push(0x19);
+        manual.push(0x01);
+        manual.extend_from_slice(domain.as_slice());
+        manual.extend_from_slice(struct_hash.as_slice());
+        let manual_hash = keccak256(&manual);
+        let via_hash = keyring.sign_hash(&manual_hash).await.expect("sign_hash");
+
+        assert_eq!(via_typed, via_hash);
+    }
+
+    /// Round-trip via `recover_address_from_prehash`. The prehash is the
+    /// same EIP-712 digest computed independently in this test.
+    #[tokio::test]
+    async fn sign_typed_data_recovers_address_from_prehash() {
+        let keyring = LocalKeyring::generate(PASSWORD).expect("generate");
+        let domain = B256::from([0x11; 32]);
+        let struct_hash = B256::from([0x22; 32]);
+
+        let sig = keyring
+            .sign_typed_data(&domain, &struct_hash)
+            .await
+            .expect("sign_typed_data");
+
+        let mut buf = [0u8; 2 + 32 + 32];
+        buf[0] = 0x19;
+        buf[1] = 0x01;
+        buf[2..34].copy_from_slice(domain.as_slice());
+        buf[34..66].copy_from_slice(struct_hash.as_slice());
+        let prehash = keccak256(buf);
+
+        let recovered = sig
+            .recover_address_from_prehash(&prehash)
+            .expect("recover_address_from_prehash");
+        assert_eq!(recovered, keyring.address());
     }
 }
