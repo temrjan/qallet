@@ -205,10 +205,15 @@ impl LocalKeyring {
     }
 }
 
-/// Encrypt a 32-byte private key with password.
+/// Encrypt arbitrary bytes (e.g. a 32-byte private key, or a mnemonic phrase
+/// for onboarding-mnemonic at-rest storage) with the user password.
 ///
-/// Output: salt(16) || nonce(12) || ciphertext(32 + 16 tag) = 76 bytes
-fn encrypt_key(key: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
+/// Output layout: `salt(16) || nonce(12) || ciphertext(N + 16 tag)`.
+///
+/// Visibility is `pub(crate)` so the wallet service can re-use the same
+/// Argon2id + AES-256-GCM scheme for the onboarding-mnemonic file, avoiding
+/// duplication of crypto code.
+pub(crate) fn encrypt_key(key: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
     let mut salt = [0u8; SALT_LEN];
     let mut nonce_bytes = [0u8; NONCE_LEN];
     rand::thread_rng().fill_bytes(&mut salt);
@@ -230,8 +235,9 @@ fn encrypt_key(key: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
     Ok(result)
 }
 
-/// Decrypt a private key from encrypted blob + password.
-fn decrypt_key(encrypted: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
+/// Decrypt arbitrary bytes (counterpart to [`encrypt_key`]) with the user
+/// password. `pub(crate)` for the same reason as [`encrypt_key`].
+pub(crate) fn decrypt_key(encrypted: &[u8], password: &str) -> Result<Vec<u8>, KeyringError> {
     if encrypted.len() < SALT_LEN + NONCE_LEN + 1 {
         return Err(KeyringError::Crypto("encrypted data too short".into()));
     }

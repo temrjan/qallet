@@ -1,50 +1,40 @@
 //! Tauri commands — bridge between Leptos frontend and Rust core.
+//!
+//! Wallet lifecycle commands delegate to [`rustok_core::wallet::WalletService`]
+//! (registered as a separate Tauri-managed `Arc<WalletService>` in
+//! `lib.rs::run`'s setup callback) per Phase 2 C1-A redesign.
+//! Non-wallet commands (provider, explorer, txguard analysis, proxy,
+//! biometric storage helpers) remain on [`AppState`] / `AppHandle`.
 
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
+use alloy_primitives::Address;
 use rustok_core::convert::{preview_to_dto, send_result_to_dto, verdict_to_dto};
 use rustok_core::explorer::ExplorerClient;
 use rustok_core::keyring::LocalKeyring;
 use rustok_core::provider::MultiProvider;
+use rustok_core::wallet::{WalletService, WalletServiceError};
 use rustok_types::{
     AnalysisResponse, SendPreviewDto, SendResponseDto, TransactionHistoryDto, UnifiedBalance,
     WalletInfo, WalletInfoWithMnemonic,
 };
 use tauri::{Manager, State};
+use zeroize::Zeroizing;
 
-/// Shared application state across all commands.
+/// Shared application state for non-wallet domains.
+///
+/// Wallet lifecycle moved to `WalletService` (registered separately as
+/// `Arc<WalletService>` in the Tauri builder's `setup` callback) per
+/// Phase 2 C1-A redesign — `app_data_dir` is only available after the app
+/// handle exists, so the service cannot be constructed at `manage` time.
 pub struct AppState {
     /// NOTE: std::sync::Mutex — lock must never be held across .await points.
     /// Clone the provider before any await, then drop the guard immediately.
     pub provider: Mutex<MultiProvider>,
     pub explorer: ExplorerClient,
-    /// NOTE: std::sync::Mutex — lock must never be held across .await points.
-    /// Acceptable for desktop app with low concurrency. Switch to tokio::sync::Mutex
-    /// if adding .await inside locked sections.
-    pub wallet: Mutex<Option<WalletState>>,
 }
-
-/// Currently active wallet.
-pub struct WalletState {
-    pub keyring: LocalKeyring,
-    /// Path to keystore JSON on disk (for future export/backup).
-    #[allow(dead_code)]
-    pub keystore_path: std::path::PathBuf,
-}
-
-const MIN_PASSWORD_LEN: usize = 8;
 
 // ─── Pure helpers (testable without Tauri runtime) ──────────────────
-
-/// Validate password meets minimum length requirement.
-fn validate_password(password: &str) -> Result<(), String> {
-    if password.len() < MIN_PASSWORD_LEN {
-        return Err(format!(
-            "password must be at least {MIN_PASSWORD_LEN} characters"
-        ));
-    }
-    Ok(())
-}
 
 /// Parse optional tx value string into U256.
 fn parse_tx_value(value: Option<&str>) -> Result<alloy_primitives::U256, String> {
@@ -57,21 +47,14 @@ fn parse_tx_value(value: Option<&str>) -> Result<alloy_primitives::U256, String>
     }
 }
 
-/// Generate themed QR code SVG for an Ethereum address.
-fn generate_qr_svg(address: &str) -> Result<String, String> {
-    let code =
-        qrcode::QrCode::new(address.as_bytes()).map_err(|e| format!("qr generation: {e}"))?;
-
-    Ok(code
-        .render::<qrcode::render::svg::Color<'_>>()
-        .dark_color(qrcode::render::svg::Color("#E2E8F0"))
-        .light_color(qrcode::render::svg::Color("#13131D"))
-        .quiet_zone(true)
-        .min_dimensions(200, 200)
-        .build())
+/// Render a [`WalletServiceError`] as the `String` error type Tauri commands
+/// emit. Sensitive context never crosses FFI per C2 — the service emits only
+/// structured variant tags + minimal numeric fields.
+fn format_wallet_err(e: WalletServiceError) -> String {
+    e.to_string()
 }
 
-// ─── Tauri commands ─────────────────────────────────────────────────
+// ─── Tauri commands — non-wallet domain ─────────────────────────────
 
 #[tauri::command]
 pub async fn get_balance(
@@ -113,89 +96,102 @@ pub async fn analyze_transaction(
     Ok(verdict_to_dto(verdict))
 }
 
-/// Persist a keyring to the app data directory and store it in app state.
-///
-/// Single-wallet design: any existing `*.json` keystores are removed before
-/// writing the new one. On Unix the keystore file is chmod'd to `0600`.
-fn persist_keyring(
-    keyring: LocalKeyring,
-    app_handle: &tauri::AppHandle,
-    state: &State<'_, AppState>,
+// ─── Tauri commands — wallet lifecycle (delegates to WalletService) ─
+
+#[tauri::command]
+pub async fn has_wallet(wallet_service: State<'_, Arc<WalletService>>) -> Result<bool, String> {
+    wallet_service.has_wallet().await.map_err(format_wallet_err)
+}
+
+#[tauri::command]
+pub async fn is_wallet_unlocked(
+    wallet_service: State<'_, Arc<WalletService>>,
+) -> Result<bool, String> {
+    Ok(wallet_service.is_unlocked().await)
+}
+
+#[tauri::command]
+pub async fn unlock_wallet(
+    password: String,
+    wallet_service: State<'_, Arc<WalletService>>,
 ) -> Result<WalletInfo, String> {
-    let address = keyring.address();
+    let pwd = Zeroizing::new(password);
+    let id = wallet_service
+        .unlock(pwd)
+        .await
+        .map_err(format_wallet_err)?;
+    Ok(WalletInfo { address: id })
+}
 
-    // Lock FIRST to prevent concurrent wallet creation from interleaving
-    // filesystem operations (delete old → write new) and leaving stale
-    // keystore files or losing the wallet entirely.
-    let mut wallet_lock = state
-        .wallet
-        .lock()
-        .map_err(|e| format!("state lock: {e}"))?;
-
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("no app data dir: {e}"))?;
-    std::fs::create_dir_all(&data_dir).map_err(|e| format!("failed to create data dir: {e}"))?;
-
-    // Remove old keystore files — single-wallet design, only one active at a time.
-    if let Ok(entries) = std::fs::read_dir(&data_dir) {
-        for entry in entries.flatten() {
-            if entry.path().extension().is_some_and(|ext| ext == "json") {
-                let _ = std::fs::remove_file(entry.path());
-            }
-        }
-    }
-
-    let keystore_path = data_dir.join(format!("{address}.json"));
-
-    // Same format as CLI: { version, address, encrypted_key }
-    let export = serde_json::json!({
-        "version": 1,
-        "address": format!("{address}"),
-        "encrypted_key": alloy_primitives::hex::encode(keyring.encrypted_bytes()),
-    });
-    let json = serde_json::to_string_pretty(&export)
-        .map_err(|e| format!("failed to serialize keystore: {e}"))?;
-    std::fs::write(&keystore_path, &json).map_err(|e| format!("failed to save keystore: {e}"))?;
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&keystore_path, std::fs::Permissions::from_mode(0o600))
-            .map_err(|e| format!("failed to restrict keystore permissions: {e}"))?;
-    }
-    *wallet_lock = Some(WalletState {
-        keyring,
-        keystore_path,
-    });
-
-    Ok(WalletInfo {
-        address: format!("{address}"),
-    })
+#[tauri::command]
+pub async fn lock_wallet(wallet_service: State<'_, Arc<WalletService>>) -> Result<(), String> {
+    wallet_service.lock().await;
+    Ok(())
 }
 
 #[tauri::command]
 pub async fn create_wallet(
     password: String,
-    app_handle: tauri::AppHandle,
-    state: State<'_, AppState>,
+    wallet_service: State<'_, Arc<WalletService>>,
 ) -> Result<WalletInfo, String> {
-    validate_password(&password)?;
+    let pwd = Zeroizing::new(password);
+    let id = wallet_service
+        .create_wallet(pwd)
+        .await
+        .map_err(format_wallet_err)?;
+    Ok(WalletInfo { address: id })
+}
 
-    let keyring =
-        LocalKeyring::generate(&password).map_err(|e| format!("failed to create wallet: {e}"))?;
+/// Generate a fresh wallet *and* return the recovery mnemonic alongside the
+/// address. Implemented as `create_wallet` + immediate `reveal_mnemonic_for_onboarding`,
+/// preserving the prior desktop UX (mnemonic shown once on creation).
+///
+/// The mnemonic is **encrypted at rest** between these two internal calls
+/// (per C1-A) — onboarding-mnemonic file is removed on the successful reveal,
+/// matching the legacy "show once" semantic.
+#[tauri::command]
+pub async fn create_wallet_with_mnemonic(
+    password: String,
+    wallet_service: State<'_, Arc<WalletService>>,
+) -> Result<WalletInfoWithMnemonic, String> {
+    let pwd = Zeroizing::new(password);
+    let id = wallet_service
+        .create_wallet(pwd.clone())
+        .await
+        .map_err(format_wallet_err)?;
+    let phrase = wallet_service
+        .reveal_mnemonic_for_onboarding(&id, pwd)
+        .await
+        .map_err(format_wallet_err)?;
+    Ok(WalletInfoWithMnemonic {
+        address: id,
+        mnemonic: phrase.to_string(),
+    })
+}
 
-    persist_keyring(keyring, &app_handle, &state)
+#[tauri::command]
+pub async fn import_wallet_from_mnemonic(
+    phrase: String,
+    password: String,
+    wallet_service: State<'_, Arc<WalletService>>,
+) -> Result<WalletInfo, String> {
+    let phrase_z = Zeroizing::new(phrase);
+    let pwd = Zeroizing::new(password);
+    let id = wallet_service
+        .import_from_mnemonic(phrase_z, pwd)
+        .await
+        .map_err(format_wallet_err)?;
+    Ok(WalletInfo { address: id })
 }
 
 /// Generate a random BIP39 recovery phrase without creating a wallet.
 ///
-/// Used by the create-wallet wizard so the UI can show the phrase, run a
-/// confirmation step, and only then collect a password and persist the
-/// wallet via [`import_wallet_from_mnemonic`]. The phrase is transmitted
-/// as plain String over the Tauri bridge — it cannot be zeroed on the JS
-/// side, which is the standard trade-off for software wallets.
+/// **Known C1 violation** — kept for the legacy desktop create-wallet wizard
+/// which calls this then `import_wallet_from_mnemonic` separately. Mobile
+/// bindings do NOT expose this path; mobile uses the
+/// `create_wallet` + `reveal_mnemonic_for_onboarding` pair which keeps the
+/// raw phrase off the FFI boundary by design. Removed in Phase 4 cleanup
+/// once the desktop wizard migrates to the new pair.
 #[tauri::command]
 pub async fn generate_mnemonic_phrase() -> Result<String, String> {
     let phrase = LocalKeyring::random_mnemonic_phrase()
@@ -203,182 +199,35 @@ pub async fn generate_mnemonic_phrase() -> Result<String, String> {
     Ok(phrase.to_string())
 }
 
-/// Create a new wallet and return the recovery phrase alongside the address.
-///
-/// The phrase is shown to the user exactly once — it is never stored
-/// server-side, so the user must write it down to recover the wallet on
-/// another device or after a password change.
 #[tauri::command]
-pub async fn create_wallet_with_mnemonic(
-    password: String,
-    app_handle: tauri::AppHandle,
+pub async fn get_wallet_qr_svg(
+    wallet_service: State<'_, Arc<WalletService>>,
+) -> Result<String, String> {
+    wallet_service
+        .current_qr_svg()
+        .await
+        .map_err(format_wallet_err)
+}
+
+#[tauri::command]
+pub async fn get_current_address(
+    wallet_service: State<'_, Arc<WalletService>>,
+) -> Result<Option<String>, String> {
+    Ok(wallet_service.current_address().await)
+}
+
+#[tauri::command]
+pub async fn get_wallet_balance(
+    wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
-) -> Result<WalletInfoWithMnemonic, String> {
-    validate_password(&password)?;
-
-    let phrase = LocalKeyring::random_mnemonic_phrase()
-        .map_err(|e| format!("failed to generate mnemonic: {e}"))?;
-
-    let keyring = LocalKeyring::from_mnemonic(&phrase, &password)
-        .map_err(|e| format!("failed to derive wallet from mnemonic: {e}"))?;
-
-    let info = persist_keyring(keyring, &app_handle, &state)?;
-
-    Ok(WalletInfoWithMnemonic {
-        address: info.address,
-        mnemonic: phrase.to_string(),
-    })
-}
-
-/// Restore a wallet from a BIP39 recovery phrase.
-#[tauri::command]
-pub async fn import_wallet_from_mnemonic(
-    phrase: String,
-    password: String,
-    app_handle: tauri::AppHandle,
-    state: State<'_, AppState>,
-) -> Result<WalletInfo, String> {
-    // No length validation: caller may pass a 6-digit PIN (new UX) or a text
-    // password (CLI / legacy). Argon2id works correctly with any non-empty input;
-    // the UI enforces the format constraint before invoking this command.
-    let keyring = LocalKeyring::from_mnemonic(&phrase, &password)
-        .map_err(|e| format!("failed to import wallet: {e}"))?;
-
-    persist_keyring(keyring, &app_handle, &state)
-}
-
-#[tauri::command]
-pub async fn get_wallet_qr_svg(state: State<'_, AppState>) -> Result<String, String> {
-    let wallet_lock = state
-        .wallet
-        .lock()
-        .map_err(|e| format!("state lock: {e}"))?;
-    let wallet = wallet_lock
-        .as_ref()
-        .ok_or_else(|| "no wallet loaded".to_string())?;
-
-    let address = format!("{}", wallet.keyring.address());
-    // EIP-681 URI so camera apps (MetaMask scanner, Rainbow, Google Lens on
-    // supported wallets) recognise the payload as an Ethereum address instead
-    // of treating it as an opaque string.
-    generate_qr_svg(&format!("ethereum:{address}"))
-}
-
-#[tauri::command]
-pub async fn get_current_address(state: State<'_, AppState>) -> Result<Option<String>, String> {
-    let wallet_lock = state
-        .wallet
-        .lock()
-        .map_err(|e| format!("state lock: {e}"))?;
-    Ok(wallet_lock
-        .as_ref()
-        .map(|w| format!("{}", w.keyring.address())))
-}
-
-// ─── Wallet lifecycle helpers ──────────────────────────────────────
-
-/// Unlock the wallet from the keystore file using the given password.
-/// Shared between `unlock_wallet` and `biometric_unlock_wallet`.
-fn unlock_with_password(
-    password: &str,
-    data_dir: &std::path::Path,
-    state: &AppState,
-) -> Result<WalletInfo, String> {
-    let keystore_path = std::fs::read_dir(data_dir)
-        .map_err(|e| format!("cannot read data dir: {e}"))?
-        .filter_map(|e| e.ok())
-        .find(|e| e.path().extension().is_some_and(|ext| ext == "json"))
-        .ok_or("no wallet found — create one first")?
-        .path();
-
-    let json = std::fs::read_to_string(&keystore_path)
-        .map_err(|e| format!("cannot read keystore: {e}"))?;
-    let export: serde_json::Value =
-        serde_json::from_str(&json).map_err(|e| format!("invalid keystore JSON: {e}"))?;
-    let encrypted_hex = export["encrypted_key"]
-        .as_str()
-        .ok_or("missing encrypted_key in keystore")?;
-    let encrypted =
-        alloy_primitives::hex::decode(encrypted_hex).map_err(|e| format!("invalid hex: {e}"))?;
-
-    let keyring = LocalKeyring::from_encrypted(&encrypted, password)
-        .map_err(|_| "unlock failed".to_string())?;
-    let address = format!("{}", keyring.address());
-
-    let mut wallet_lock = state
-        .wallet
-        .lock()
-        .map_err(|e| format!("state lock: {e}"))?;
-    *wallet_lock = Some(WalletState {
-        keyring,
-        keystore_path,
-    });
-
-    Ok(WalletInfo { address })
-}
-
-// ─── Wallet lifecycle commands ──────────────────────────────────────
-
-#[tauri::command]
-pub async fn has_wallet(app_handle: tauri::AppHandle) -> Result<bool, String> {
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("no app data dir: {e}"))?;
-    Ok(std::fs::read_dir(&data_dir)
-        .map(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .any(|e| e.path().extension().is_some_and(|ext| ext == "json"))
-        })
-        .unwrap_or(false))
-}
-
-#[tauri::command]
-pub async fn is_wallet_unlocked(state: State<'_, AppState>) -> Result<bool, String> {
-    let lock = state
-        .wallet
-        .lock()
-        .map_err(|e| format!("state lock: {e}"))?;
-    Ok(lock.is_some())
-}
-
-#[tauri::command]
-pub async fn unlock_wallet(
-    password: String,
-    app_handle: tauri::AppHandle,
-    state: State<'_, AppState>,
-) -> Result<WalletInfo, String> {
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("no app data dir: {e}"))?;
-    unlock_with_password(&password, &data_dir, &state)
-}
-
-/// Clear the in-memory wallet so subsequent commands require a fresh unlock.
-#[tauri::command]
-pub async fn lock_wallet(state: State<'_, AppState>) -> Result<(), String> {
-    let mut lock = state
-        .wallet
-        .lock()
-        .map_err(|e| format!("state lock: {e}"))?;
-    *lock = None;
-    Ok(())
-}
-
-// ─── Balance from wallet state ─────────────────────────────────────
-
-#[tauri::command]
-pub async fn get_wallet_balance(state: State<'_, AppState>) -> Result<UnifiedBalance, String> {
-    let addr = {
-        let lock = state
-            .wallet
-            .lock()
-            .map_err(|e| format!("state lock: {e}"))?;
-        let w = lock.as_ref().ok_or("wallet not unlocked")?;
-        w.keyring.address()
-    };
+) -> Result<UnifiedBalance, String> {
+    let addr_str = wallet_service
+        .current_address()
+        .await
+        .ok_or_else(|| "wallet not unlocked".to_string())?;
+    let addr: Address = addr_str
+        .parse()
+        .map_err(|e| format!("invalid address: {e}"))?;
     let provider = state
         .provider
         .lock()
@@ -388,30 +237,23 @@ pub async fn get_wallet_balance(state: State<'_, AppState>) -> Result<UnifiedBal
     Ok(balance.into())
 }
 
-// ─── Send commands ─────────────────────────────────────────────────
-
 #[tauri::command]
 pub async fn preview_send(
     to: String,
     amount: String,
+    wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
 ) -> Result<SendPreviewDto, String> {
-    // 1. Get sender address from wallet (short lock).
-    let from = {
-        let lock = state
-            .wallet
-            .lock()
-            .map_err(|e| format!("state lock: {e}"))?;
-        let w = lock.as_ref().ok_or("wallet not unlocked")?;
-        w.keyring.address()
-    };
-
-    // 2. Parse inputs.
-    let to_addr: alloy_primitives::Address =
-        to.parse().map_err(|e| format!("invalid address: {e}"))?;
+    let from_str = wallet_service
+        .current_address()
+        .await
+        .ok_or_else(|| "wallet not unlocked".to_string())?;
+    let from: Address = from_str
+        .parse()
+        .map_err(|e| format!("invalid address: {e}"))?;
+    let to_addr: Address = to.parse().map_err(|e| format!("invalid address: {e}"))?;
     let amount_wei = rustok_core::amount::parse_eth_amount(&amount).map_err(|e| e.to_string())?;
 
-    // 3. Run preview.
     let provider = state
         .provider
         .lock()
@@ -428,26 +270,18 @@ pub async fn preview_send(
 pub async fn send_eth(
     to: String,
     amount: String,
+    wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
 ) -> Result<SendResponseDto, String> {
-    // 1. Clone signer (short lock, then drop).
-    let signer = {
-        let lock = state
-            .wallet
-            .lock()
-            .map_err(|e| format!("state lock: {e}"))?;
-        let w = lock.as_ref().ok_or("wallet not unlocked")?;
-        w.keyring.signer().clone()
-    };
-    // Lock dropped — safe to .await below.
+    let signer = wallet_service
+        .current_signer()
+        .await
+        .ok_or_else(|| "wallet not unlocked".to_string())?;
     let from = signer.address();
 
-    // 2. Parse inputs.
-    let to_addr: alloy_primitives::Address =
-        to.parse().map_err(|e| format!("invalid address: {e}"))?;
+    let to_addr: Address = to.parse().map_err(|e| format!("invalid address: {e}"))?;
     let amount_wei = rustok_core::amount::parse_eth_amount(&amount).map_err(|e| e.to_string())?;
 
-    // 3. Preview first (txguard + routing).
     let provider = state
         .provider
         .lock()
@@ -457,7 +291,6 @@ pub async fn send_eth(
         .await
         .map_err(|e| e.to_string())?;
 
-    // 4. Execute send.
     let result =
         rustok_core::send::execute_send(&provider, signer, to_addr, amount_wei, &preview.route)
             .await
@@ -466,21 +299,18 @@ pub async fn send_eth(
     Ok(send_result_to_dto(result))
 }
 
-// ─── Transaction history ──────────────────────────────────────────
-
 #[tauri::command]
 pub async fn get_transaction_history(
+    wallet_service: State<'_, Arc<WalletService>>,
     state: State<'_, AppState>,
 ) -> Result<TransactionHistoryDto, String> {
-    let addr = {
-        let lock = state
-            .wallet
-            .lock()
-            .map_err(|e| format!("state lock: {e}"))?;
-        let w = lock.as_ref().ok_or("wallet not unlocked")?;
-        w.keyring.address()
-    };
-    // Lock dropped — safe to .await.
+    let addr_str = wallet_service
+        .current_address()
+        .await
+        .ok_or_else(|| "wallet not unlocked".to_string())?;
+    let addr: Address = addr_str
+        .parse()
+        .map_err(|e| format!("invalid address: {e}"))?;
     let chains = state
         .provider
         .lock()
@@ -493,19 +323,15 @@ pub async fn get_transaction_history(
 
 // ─── Biometric unlock ─────────────────────────────────────────────
 //
-// Security model:
-// - Password is stored directly in OS-native secure storage.
-// - Mobile: Android Keystore / iOS Keychain (via tauri-plugin-keystore).
-// - Desktop: system keyring (via keyring crate).
-// - No app-static encryption key. Legacy biometric.dat is cleaned up on disable.
+// Security model unchanged from prior implementation: password is stored
+// directly in OS-native secure storage (Android Keystore / iOS Keychain via
+// tauri-plugin-keystore on mobile; system keyring via the `keyring` crate on
+// desktop). The biometric unlock command delegates the actual wallet unlock
+// to `WalletService::unlock` once the password is retrieved.
 
-/// Marker file indicating that biometric unlock has been enabled.
-/// The file itself is empty and contains no secrets; it exists solely so that
-/// `is_biometric_enabled` can check status without querying secure storage
-/// (which on mobile would trigger a biometric prompt).
+/// Marker file indicating biometric unlock is enabled.
 const BIOMETRIC_ENABLED_FILE: &str = "biometric.enabled";
 
-/// Check if biometric unlock is enabled by looking for the marker file.
 #[tauri::command]
 pub async fn is_biometric_enabled(app_handle: tauri::AppHandle) -> Result<bool, String> {
     let data_dir = app_handle
@@ -515,19 +341,14 @@ pub async fn is_biometric_enabled(app_handle: tauri::AppHandle) -> Result<bool, 
     Ok(data_dir.join(BIOMETRIC_ENABLED_FILE).exists())
 }
 
-/// Store password for biometric unlock in platform-native secure storage.
-/// Called after user successfully unlocks with password + confirms biometric.
 #[tauri::command]
 pub async fn enable_biometric_unlock(
     password: String,
     app_handle: tauri::AppHandle,
 ) -> Result<(), String> {
-    use zeroize::Zeroizing;
-
     let password = Zeroizing::new(password);
     crate::biometric_storage::store_password(&app_handle, &password)?;
 
-    // Create marker file so `is_biometric_enabled` can check without prompting.
     let data_dir = app_handle
         .path()
         .app_data_dir()
@@ -539,7 +360,6 @@ pub async fn enable_biometric_unlock(
     Ok(())
 }
 
-/// Remove stored biometric password from secure storage.
 #[tauri::command]
 pub async fn disable_biometric_unlock(app_handle: tauri::AppHandle) -> Result<(), String> {
     crate::biometric_storage::remove_password(&app_handle)?;
@@ -549,7 +369,6 @@ pub async fn disable_biometric_unlock(app_handle: tauri::AppHandle) -> Result<()
         .app_data_dir()
         .map_err(|e| format!("no app data dir: {e}"))?;
 
-    // Remove marker file.
     let marker = data_dir.join(BIOMETRIC_ENABLED_FILE);
     if marker.exists() {
         let _ = std::fs::remove_file(&marker);
@@ -563,29 +382,22 @@ pub async fn disable_biometric_unlock(app_handle: tauri::AppHandle) -> Result<()
     Ok(())
 }
 
-/// Unlock wallet using the biometric-stored password.
-/// On mobile the secure storage itself triggers the biometric prompt.
 #[tauri::command]
 pub async fn biometric_unlock_wallet(
     app_handle: tauri::AppHandle,
-    state: State<'_, AppState>,
+    wallet_service: State<'_, Arc<WalletService>>,
 ) -> Result<WalletInfo, String> {
-    use zeroize::Zeroizing;
-
     let password = Zeroizing::new(crate::biometric_storage::retrieve_password(&app_handle)?);
-
-    let data_dir = app_handle
-        .path()
-        .app_data_dir()
-        .map_err(|e| format!("no app data dir: {e}"))?;
-    unlock_with_password(&password, &data_dir, &state)
+    let id = wallet_service
+        .unlock(password)
+        .await
+        .map_err(format_wallet_err)?;
+    Ok(WalletInfo { address: id })
 }
 
 // ─── Proxy toggle ───────────────────────────────────────────────────
 
 /// Read whether the Cloudflare Worker proxy is enabled.
-///
-/// Uses a marker file in the app data directory.
 #[tauri::command]
 pub fn get_proxy_enabled(app_handle: tauri::AppHandle) -> bool {
     if let Ok(data_dir) = app_handle.path().app_data_dir() {
@@ -596,9 +408,6 @@ pub fn get_proxy_enabled(app_handle: tauri::AppHandle) -> bool {
 }
 
 /// Enable or disable the Cloudflare Worker proxy at runtime.
-///
-/// Writes a marker file and replaces the active `MultiProvider` in `AppState`
-/// so subsequent RPC calls use the new configuration immediately.
 #[tauri::command]
 pub async fn set_proxy_enabled(
     enabled: bool,
@@ -640,19 +449,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn password_too_short_rejected() {
-        assert!(validate_password("").is_err());
-        assert!(validate_password("1234567").is_err());
-        assert!(validate_password("abc").is_err());
-    }
-
-    #[test]
-    fn password_min_length_accepted() {
-        assert!(validate_password("12345678").is_ok());
-        assert!(validate_password("a very long secure password").is_ok());
-    }
-
-    #[test]
     fn parse_value_none_is_zero() {
         let v = parse_tx_value(None).unwrap();
         assert_eq!(v, alloy_primitives::U256::ZERO);
@@ -678,21 +474,5 @@ mod tests {
         assert!(parse_tx_value(Some("not_a_number")).is_err());
         assert!(parse_tx_value(Some("1.5 ETH")).is_err());
         assert!(parse_tx_value(Some("-1")).is_err());
-    }
-
-    #[test]
-    fn qr_svg_valid_address() {
-        let svg = generate_qr_svg("0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045").unwrap();
-        assert!(svg.contains("<svg"));
-        assert!(svg.contains("</svg>"));
-        assert!(svg.contains("#E2E8F0")); // dark color
-        assert!(svg.contains("#13131D")); // light color
-    }
-
-    #[test]
-    fn qr_svg_empty_string() {
-        // QR code can encode empty string — should not panic.
-        let svg = generate_qr_svg("").unwrap();
-        assert!(svg.contains("<svg"));
     }
 }
