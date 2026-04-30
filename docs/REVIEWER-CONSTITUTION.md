@@ -438,28 +438,32 @@ Reviewer обязан в **том же ответе** проверить:
 
 ## 9.7 Skills catalog — что у Claude Code есть
 
-(Заполняется при старте сессии. Этот блок для текущего проекта Rustok:)
+**Pre-code — загрузка стандартов (всегда первым):**
+- `/rust` — Rust core, crates стандарты (читает codex/rust/)
+- `/typescript` — TypeScript / React Native / NestJS стандарты
+- `/python` — Python / FastAPI / aiogram стандарты
+- `/codex` — generic / multi-stack (если язык не определён)
 
-**Pre-code (всегда первым):**
-- `/codex` — load architecture/pipeline + язык-стандарты
+**Pipeline (воркфлоу задачи):**
+- `/workflow <задача>` — state machine: planning→coding→reviewing→shipped. Compaction-safe.
+- `/workflow fast` — пропустить /check и загрузку стандартов (только diff <10 строк, не auth/crypto)
 
-**Архитектор по языку:**
-- `/rust` — Rust core, crates
-- `/typescript` — TypeScript / React Native / NestJS
-- `/python` — Python / FastAPI / aiogram
-
-**Self-check плана:**
-- `/check` — критика через sequential thinking (4 категории)
+**Pre-implementation review плана:**
+- `/check` — adversarial review плана: ≥5 проблем в 5 категориях (facts, edge cases, simplicity, compatibility, format). Gate для planning→coding в /workflow.
+- `/selfcheck` — самопроверка последнего ответа Claude через sequential thinking (4 категории)
 
 **Code review (перед коммитом):**
-- `/rust-review` — финальный review Rust diff
-- `/typescript-review` — финальный review TS/RN diff
-- `/python-review` — финальный review Python diff
+- `/rust-review` — финальный review Rust diff (читает codex/rust/)
+- `/typescript-review` — финальный review TS/RN diff (читает codex/typescript/)
+- `/python-review` — финальный review Python diff (читает codex/python/)
 
-**Cross-cutting:**
-- `/review` — review PR'а целиком
-- `/security-review` — security audit pending changes
+**Cross-cutting review:**
+- `/review` — двухэтапный fleet review: <200 строк — один агент, ≥200 строк — 5 агентов параллельно (correctness, security, performance, tests, design) + confidence-scorer верификатор
+- `/security-review` — security audit pending changes (обязательно при crypto/auth/secrets)
 - `/simplify` — review на reuse/quality/efficiency
+
+**Post-deploy:**
+- `/verify` — smoke test: ищет scripts/smoke.sh → make smoke → npm run smoke → CLAUDE.md smoke_cmd
 
 **Best practices refresh:**
 - `/quality-check` — раз в месяц проверка свежих best practices

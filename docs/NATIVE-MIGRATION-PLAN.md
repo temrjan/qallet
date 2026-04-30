@@ -93,12 +93,17 @@ ls docs/
 
 | Скилл | Когда использовать | Когда НЕ использовать |
 |-------|---------------------|------------------------|
-| `/codex` | ОБЯЗАТЕЛЬНО перед любой кодовой работой | Вопросы, исследование, опечатки, комментарии |
-| `/typescript` | TS/React Native код | Rust |
-| `/rust` | Rust код (core, txguard, bindings) | TS/JS |
-| `/check` | После каждого плана/решения/анализа | Тривиальные ответы |
+| `/rust` | Rust код (core, txguard, bindings) — загрузка стандартов | TS/JS |
+| `/typescript` | TS/React Native код — загрузка стандартов | Rust |
+| `/codex` | Multi-stack или язык не определён | Когда язык известен |
+| `/workflow <задача>` | Старт любой нетривиальной задачи | Тривиальные фиксы |
+| `/check` | Adversarial review плана (≥5 проблем, 5 категорий). Gate planning→coding | Тривиальные ответы |
+| `/selfcheck` | Самопроверка последнего ответа Claude (sequential thinking) | — |
+| `/rust-review` | Перед коммитом Rust изменений (НИКОГДА не пропускать!) | — |
 | `/typescript-review` | Перед коммитом TS изменений (НИКОГДА не пропускать!) | — |
-| `/rust-review` | Перед коммитом Rust изменений | — |
+| `/review` | Cross-language PR или diff ≥200 строк (флот 5 агентов) | Per-commit одного языка |
+| `/security-review` | Любые изменения в crypto/auth/secrets/txguard | — |
+| `/verify` | После деплоя / smoke test | — |
 | `/quality-check` | Периодически — проверка свежих best practices | — |
 
 **Правило:** review skill на КАЖДЫЙ diff перед коммитом. Не лениться даже на мелких фиксах.

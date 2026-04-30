@@ -20,20 +20,23 @@ git log --oneline -10
 cargo test --workspace
 ```
 
-## Workflow (8 шагов — см. NATIVE-MIGRATION-PLAN.md §C)
+## Workflow (см. NATIVE-MIGRATION-PLAN.md §C и §D)
 
-Изучаю → План → /check → Исправляю → /codex + /rust или /typescript → Реализую → Ревьюю → Коммит
+```
+/workflow "задача" → /check → /rust или /typescript → код → /rust-review или /typescript-review → коммит
+```
 
 Между каждым шагом — пауза, ждать "да" от пользователя.
 
 ## Mandatory skills
 
-- `/codex` — ВСЕГДА перед кодом
-- `/rust` — Rust изменения
-- `/typescript` — TypeScript/React Native изменения
-- `/check` — после каждого плана
-- `/rust-review` — перед коммитом Rust
-- `/typescript-review` — перед коммитом TS
+- `/rust` — ВСЕГДА перед Rust кодом (загрузка стандартов)
+- `/typescript` — ВСЕГДА перед TS/RN кодом (загрузка стандартов)
+- `/check` — adversarial review плана (≥5 проблем, 5 категорий)
+- `/rust-review` — перед коммитом Rust (НИКОГДА не пропускать)
+- `/typescript-review` — перед коммитом TS (НИКОГДА не пропускать)
+- `/security-review` — при любых изменениях в txguard/crypto/auth
+- `/workflow` — для отслеживания состояния задачи (compaction-safe)
 
 ## Gates перед коммитом
 
