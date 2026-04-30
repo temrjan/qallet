@@ -21,4 +21,5 @@ pub mod keyring;
 pub mod provider;
 pub mod router;
 pub mod send;
+pub mod sign;
 pub mod wallet;
