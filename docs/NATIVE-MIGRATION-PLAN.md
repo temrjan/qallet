@@ -36,7 +36,8 @@
 3. **`docs/POC-FOUNDATION.md`** — детальный план текущей фазы (если уже создан)
 4. **`C:/Users/omadg/.claude/projects/C--Claude/memory/project_rustok.md`** — проектная память
 5. **`app/src-tauri/src/commands.rs`** — baseline 22 команд которые мигрируют через uniffi
-6. **`docs/_archive/FRONTEND-IMPLEMENTATION-WEBVIEW.md`** — отменённый план (только для понимания контекста; НЕ выполнять)
+6. **`docs/REVIEWER-CONSTITUTION.md`** — operating system для Reviewer-агента (v1.2). Загружать в начале каждой review-сессии.
+7. **`docs/_archive/FRONTEND-IMPLEMENTATION-WEBVIEW.md`** — отменённый план (только для понимания контекста; НЕ выполнять)
 
 > ⚠️ **ВНИМАНИЕ — устаревшие источники до Phase 8:**
 > - **`docs/SESSION.md`** — описывает старый стек (Tauri+Leptos), будет обновлён в Phase 8 (cleanup). До этого — **не трактовать как источник истины**, использовать ЭТОТ документ.
