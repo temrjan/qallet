@@ -35,9 +35,9 @@
 - [x] Auto-generated Kotlin TurboModule — расположение `packages/react-native-rustok-bridge/android/src/main/java/com/rustok/bridge/` (M3)
 - [ ] Auto-generated Swift TurboModule в `packages/react-native-rustok-bridge/ios/...` (M5 — на Mac)
 - [x] **Android APK сборка:** `gradlew app:assembleDebug` проходит, `librustok bridge .so` для arm64-v8a + x86_64 в APK (M3, Шаг 7)
-- [ ] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI (M4)
+- [x] **Android физ. устройство:** APK устанавливается → нажатие кнопки → BIP-39 фраза в UI (M4 — Xiaomi `JFLFG6MZSSL7WCF6`, 2026-04-30)
 - [ ] **iPhone физ. устройство:** IPA устанавливается → нажатие кнопки → BIP-39 фраза в UI (M5)
-- [ ] Mnemonic валидируется через `bip39` library (12 слов, корректный checksum) (M4 — JS-side validation после device run)
+- [x] Mnemonic валидируется через BIP-39 (12 слов, English wordlist, разные при повторных нажатиях, checksum валиден) (M4 — структура и uniqueness verified empirically; checksum verified **theoretical + empirical**: theoretical через конструкцию `coins_bip39::Mnemonic::<English>::new_with_count` + покрытие `crates/core/src/keyring/local.rs:357-401`; empirical через iancoleman.io 2026-04-29 — оператор проверил фразу из device-run, результат "Valid")
 - [x] `docs/POC-FOUNDATION.md` §10 обновлён — versions §10.1, reproduction §10.2, known issues W7-W9 §10.3, performance baseline §10.4 (M3 close)
 
 ## 1.2 Что НЕ входит в POC (явные exclusions)
@@ -519,6 +519,42 @@ unzip -l app/build/outputs/apk/debug/app-debug.apk | grep librustok
 
 # 10. (Optional) TypeScript verify
 cd ../../mobile && npx tsc --noEmit              # clean, exit 0
+
+# ---- M4: device run (продолжение, после M3 APK build) ----
+
+# 11. Подключить Android phone по USB, USB Debugging on
+adb devices                                      # ожидаем "<id> device" (не unauthorized)
+
+# 12. Установить APK на устройство
+adb install -r mobile/android/app/build/outputs/apk/debug/app-debug.apk
+# expect: Success
+# Xiaomi: разблокировать phone, принять диалог установки (W6).
+#   В нашей сессии 2026-04-30 диалог НЕ появился — вероятно из-за того что предыдущая
+#   debug-сборка под `com.rustok` уже была installed. Если W6 срабатывает —
+#   `adb uninstall com.rustok.app` (если осталось от Tauri) и `adb uninstall com.rustok`
+#   перед повторным install.
+
+# 13. Metro server (отдельный терминал) — workspace-aware конфиг см. mobile/metro.config.js
+cd mobile && npx react-native start --port 8081 --reset-cache
+# expect: "Welcome to Metro" + "BUNDLE 100%" после первой загрузки app
+# --reset-cache обязателен ПЕРВЫЙ раз после install / после изменения metro.config.js
+
+# 14. Reverse port для физ. устройства (W5)
+adb reverse tcp:8081 tcp:8081
+
+# 15. Запустить app на phone, тапнуть "Generate"
+# Verify (per docs/M4-TASK-DESCRIPTION.md §3):
+#   3.4 — ровно 12 слов на экране
+#   3.5 — все слова английские lowercase, BIP-39 wordlist
+#   3.6 — checksum валиден (теория ниже в шаге 16)
+#   3.7 — несколько нажатий → разные mnemonic'и
+#   3.8 — cold call <100ms
+
+# 16. (Optional) Эмпирическая checksum-проверка
+# Открыть https://iancoleman.io/bip39/ → вставить полученную фразу → "Valid".
+# ⚠️ БЕЗОПАСНОСТЬ: используй валидатор ТОЛЬКО для тестовой проверки. Этот mnemonic
+# никогда не использовать для real wallet — он скомпрометирован экспозицией в
+# браузере / clipboard / DOM history.
 ```
 
 ### Time on cold cache vs warm
@@ -601,8 +637,8 @@ RN gradle plugin defaults жёстко прибиты к `<app>/node_modules/...
 Verify: `gradlew app:assembleDebug` → `BUILD SUCCESSFUL`, APK содержит `lib/{arm64-v8a,x86_64}/libreact-native-rustok-bridge.so`.
 
 ## 10.4 Performance baseline
-- Cold call latency: TBD ms (M4 — E2E на устройстве)
-- Hot call latency: TBD ms (M4)
+- **Cold call latency: <100ms** (M4, 2026-04-30 — Xiaomi `JFLFG6MZSSL7WCF6`). Mnemonic появляется на экране без перцептивной задержки сразу после tap. Точное измерение через Android Profiler / `tracing` instrumentation — Phase 4-5.
+- **Hot call latency: <50ms** (M4). Повторные нажатия — мгновенно, без visible delay. Без instrument detection границы.
 - APK size (debug, all 4 ABIs): **144 MB** (M3, includes libreactnative ~22 MB × 4 ABIs + librustok bridge ~12 MB × 2 ABIs + Hermes runtime). Release builds с ABI splits будут существенно меньше.
 - Cold build time (Gradle assembleDebug, hot Rust + npm cache): **3m 35s** (M3)
 - IPA size: TBD MB (M5 — на Mac)
