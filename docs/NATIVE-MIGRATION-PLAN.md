@@ -11,6 +11,7 @@
 > - Research-обоснование: `docs/RESEARCH-NATIVE-STACKS.md`
 > - Архив отменённого WebView плана: `docs/_archive/FRONTEND-IMPLEMENTATION-WEBVIEW.md`
 > - POC деталь: `docs/POC-FOUNDATION.md` (Фаза 1)
+> - Swap интеграция: `docs/SWAP-INTEGRATION-PLAN.md` (0x API + signing pipeline)
 
 ---
 
@@ -172,7 +173,7 @@ ls docs/
 | Платформы | Android + iOS only (desktop deferred) |
 | UI язык | English only (никогда не русский в UI strings) |
 | Mainnet timeline | Свободный — фокус на качестве, не скорости |
-| Send | Только ETH, без token selector |
+| Send | ETH transfer (Phase 5). Token swap через 0x API (Phase 5, см. `docs/SWAP-INTEGRATION-PLAN.md`) |
 | Network | Readonly badge сейчас, полный селектор — отдельная задача после миграции |
 | Default theme | Light (с переключением dark) |
 | Tab bar | Wallet / Activity / TxGuard / Settings |
@@ -513,14 +514,16 @@ rustok/
 
 ---
 
-### Фаза 2 — Core API extraction (1-2 недели, 2-4 коммита)
+### Фаза 2 — Core API extraction + Signing Pipeline (2-3 недели, 4-6 коммитов)
 
-**Цель:** Перенести бизнес-логику из `commands.rs` в `rustok-core`, экспортировать через uniffi всё что нужно UI.
+**Цель:** Перенести бизнес-логику из `commands.rs` в `rustok-core`, экспортировать через uniffi всё что нужно UI. Добавить signing pipeline и swap module в ядро.
 
 **Deliverables:**
 - Аудит `app/src-tauri/src/commands.rs` — какие commands содержат логику (антипаттерн), какие — wrapper над core
 - Рефакторинг: вся логика → в core/services. Commands только тонкие обёртки (которые потом удаляются)
-- В `rustok-mobile-bindings/src/api.rs` — экспорт всех 22 команд через uniffi:
+- В `rustok-mobile-bindings/src/api.rs` — экспорт 29 команд через uniffi:
+
+  **Wallet lifecycle (existing 22):**
   - `has_wallet`, `is_wallet_unlocked`, `unlock_wallet`, `lock_wallet`
   - `create_wallet`, `create_wallet_with_mnemonic`, `import_wallet_from_mnemonic`, `generate_mnemonic_phrase`
   - `get_balance`, `get_wallet_balance`, `get_wallet_qr_svg`, `get_current_address`
@@ -529,19 +532,37 @@ rustok/
   - `is_biometric_enabled`, `enable_biometric_unlock`, `disable_biometric_unlock`, `biometric_unlock_wallet`
   - `get_proxy_enabled`, `set_proxy_enabled`
   - `get_chain_id` (новая, для network badge)
+
+  **Signing pipeline (новые, см. `docs/SWAP-INTEGRATION-PLAN.md` §3):**
+  - `sign_message` — EIP-191 personal_sign
+  - `sign_typed_data` — EIP-712 typed data signing
+  - `preview_transaction` — generic tx preview через txguard (не только ETH send)
+  - `send_transaction` — generic tx signing + broadcast
+
+  **Swap (новые):**
+  - `get_swap_quote` — котировка от 0x API (или 1inch fallback)
+  - `execute_swap` — подпись + отправка swap tx on-chain
+
+- Signing primitives в keyring: `sign_message()`, `sign_typed_data()` (`crates/core/src/keyring/local.rs`)
+- Generic tx module: `sign_and_send_transaction()`, `preview_transaction()` (`crates/core/src/sign.rs`)
+- Swap module: `SwapProvider` trait, `ZeroXProvider`, `SwapQuote` types (`crates/core/src/swap/`)
+- txguard swap rules: known DEX router whitelist, slippage check, approval analysis (`crates/txguard/src/rules/swap.rs`)
 - TypeScript types auto-сгенерены (`mobile/src/native/rustok.ts`)
 - Smoke-тест: каждая команда вызывается из RN-консоли, возвращает разумное (не падает)
 - Tauri commands.rs может остаться **временно** для desktop — финально удаляется в Фазе 8
 
 **Особенности:**
 - Async-функции через uniffi требуют `tokio::runtime::Runtime` — это делается в bindings crate
-- Errors через `Result<T, RustokError>` где `RustokError` имеет `#[derive(uniffi::Error)]`
-- Сложные типы (PreviewSend, Tx, AnalyzeResult) — через `#[derive(uniffi::Record)]`
+- Errors через `Result<T, RustokError>` где `RustokError` имеет `#[derive(uniffi::Error)]` (см. `docs/PHASE-2-CONSTRAINTS.md` C2/C3 — structured variants, не opaque message)
+- Сложные типы (PreviewSend, Tx, AnalyzeResult, SwapQuote, SwapPreview) — через `#[derive(uniffi::Record)]`
+- SwapProvider trait позволяет добавить 1inch без рефакторинга
 
 **Коммиты:**
 - `refactor(core): move business logic from tauri commands into rustok-core services`
-- `feat(bindings): export 22 commands via uniffi to mobile`
-- `feat(mobile): typed wrapper for all rustok native calls`
+- `feat(core): signing pipeline — sign_message (EIP-191), sign_typed_data (EIP-712), generic tx`
+- `feat(core): swap module — 0x API client, SwapProvider trait, quote/execute`
+- `feat(txguard): swap rules — router whitelist, slippage, approval analysis`
+- `feat(bindings): export 29 commands via uniffi to mobile`
 - `test(bindings): smoke test all commands from RN`
 
 ---
@@ -648,9 +669,15 @@ rustok/
 - `await rustok.sendEth({ to, amount })` → success toast → navigate History
 - Native error handling (через native Alert на critical errors)
 
-**Scan + Swap:**
+**Scan:**
 - `ScanScreen` — `react-native-vision-camera` + ML Kit barcode scanner. Реальный QR scan! (в WebView было невозможно)
-- `SwapScreen` — placeholder "Coming soon" (UI design финализируем позже)
+
+**Swap (полная реализация, см. `docs/SWAP-INTEGRATION-PLAN.md` §5):**
+- `SwapScreen` — выбор пары токенов, ввод amount, получение котировки от 0x API, маршрут + price impact
+- `ConfirmSwapScreen` — txguard analysis результат, gas estimate, slippage, кнопка Confirm
+- Token approval flow — если swap требует ERC-20 approve, показать 2-step flow (approve → swap)
+- `<TokenSelector>` — компонент выбора токена (поиск, balances, token list от 0x API)
+- Тестирование на Arbitrum mainnet (gas ~$0.01-0.03 per swap)
 
 **Gate:** реальный send на Sepolia на физическом устройстве (Android + iOS).
 
@@ -757,7 +784,7 @@ rustok/
 
 - [ ] Android APK собирается через `cd mobile && npx react-native run-android --variant release`
 - [ ] iOS IPA собирается через `cd mobile && npx react-native run-ios --configuration Release`
-- [ ] Все 23 функции (22 + get_chain_id) вызываются из TS типизированно через uniffi-сгенерированные TurboModule bindings
+- [ ] Все 29 функций (22 legacy + get_chain_id + 4 signing + 2 swap) вызываются из TS типизированно через uniffi-сгенерированные TurboModule bindings
 - [ ] Light + Dark темы работают
 - [ ] Native biometric (Face ID iOS + Fingerprint Android) функционирует
 - [ ] Native camera QR scan работает
@@ -767,6 +794,8 @@ rustok/
 - [ ] Smoke-тесты на физических устройствах (твой iPhone + твой Android phone)
 - [ ] Cold start < 2s
 - [ ] Onboarding-to-first-send flow < 3 минут для нового пользователя
+- [ ] Swap ETH↔USDC на Arbitrum работает end-to-end (quote → txguard → sign → broadcast)
+- [ ] txguard анализирует swap calldata перед подписью (known router, slippage, approval checks)
 - [ ] Performance baseline зафиксирован для будущих regressions
 
 ---
@@ -792,13 +821,16 @@ rustok/
 ## 7. Что НЕ делаем (явные exclusions)
 
 - ❌ **Desktop в первой версии.** После Фазы 8 решим: либо Tauri+RN-Web вариант, либо отдельный Electron, либо отказ от desktop. Сейчас фокус — mobile.
-- ❌ **WalletConnect.** Не в этой миграции. Отдельная фича после Phase 8.
-- ❌ **Token selector в Send.** Только ETH (как и было).
 - ❌ **Hardware wallet (Ledger/Trezor) integration.** Отдельная роадмап.
-- ❌ **L2 networks** (Optimism, Arbitrum, Base) кроме Mainnet/Sepolia. После основной миграции.
-- ❌ **Swap functionality.** Placeholder остаётся.
-- ❌ **Полный Network selector** с переключением. Readonly badge в Фазе 7, полный селектор — отдельная backend задача после.
 - ❌ **i18n.** Английский only.
+
+### Что ПЛАНИРУЕТСЯ в рамках миграции (обновлено 2026-04-30)
+
+- ✅ **Swap** — DEX swap через 0x API (primary) + 1inch Classic (backup). Signing pipeline в Phase 2, UI в Phase 5. См. `docs/SWAP-INTEGRATION-PLAN.md`.
+- ✅ **L2 networks** — Arbitrum, Base, Optimism. Multi-chain RPC уже в ядре (`MultiProvider`). Network selector в Phase 7. Тестирование swap на Arbitrum (дешёвый gas).
+- ✅ **Token selector** — необходим для swap (выбор sell/buy token). Реализуется в Phase 5 вместе со SwapScreen.
+- ⏳ **WalletConnect v2** — signing pipeline (sign_message, sign_typed_data) готовится в Phase 2. WalletConnect session management — отдельный план после Phase 5. Не WebView DApp Browser (Apple блокирует).
+- ⏳ **Network selector (full)** — readonly badge в Phase 3, полный селектор в Phase 7.
 
 ---
 
