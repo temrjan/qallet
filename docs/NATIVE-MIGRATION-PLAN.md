@@ -520,7 +520,25 @@ rustok/
 
 ---
 
-### Фаза 2 — Core API extraction + Signing Pipeline (2-3 недели, 4-6 коммитов)
+### Фаза 2 — Core API extraction + Signing Pipeline (2-3 недели, 4-6 коммитов) — **DONE 2026-05-01**
+
+> **Status:** Phase 2 closed 2026-05-01 на ветке `feat/phase2-core-api`. Ландят 11 atomic коммитов (план scope расширился с 4-6 до 11 при детализации):
+>
+> 1. `bd7174d` — C4 hoisting fix (peerDependencies)
+> 2. `e232c20` — BindingsError taxonomy (C2/C3)
+> 3. `e6cd6a0` — wallet lifecycle service (C1-A: encrypt-at-rest + reveal-once)
+> 4. `9dcc734` — send / preview / balance services + chain_id getter
+> 5. `e918c6b` — EIP-191 sign_message + EIP-712 sign_typed_data primitives
+> 6. `ebfdfd7` — generic tx module (preview_transaction + sign_and_send_transaction)
+> 7. `7657c22` — swap module (SwapProvider trait + ZeroXProvider + 1inch stub)
+> 8. `3e2c20f` — txguard swap rules (router whitelist + slippage + approval-to-DEX)
+> 9. `1a36cbd` — uniffi FFI exposure (24 commands via WalletHandle)
+> 10. `86d92fd` — integration tests + RN DevHarness + uniffi codegen verified
+> 11. (this commit) — Phase 2 close-out docs (C1-C4 Resolution sections + handoff final state)
+>
+> Tests: 113 (M3 baseline) → 227 (Phase 2 close), 0 failed. C1-C4 закрыты — см. `docs/PHASE-2-CONSTRAINTS.md` Resolution sections. Полный handoff: `docs/PHASE2-HANDOFF.md`.
+>
+> PR `feat/phase2-core-api → main` следующий шаг. Phase 3 onset triggers separate plan.
 
 **Цель:** Перенести бизнес-логику из `commands.rs` в `rustok-core`, экспортировать через uniffi всё что нужно UI. Добавить signing pipeline и swap module в ядро.
 

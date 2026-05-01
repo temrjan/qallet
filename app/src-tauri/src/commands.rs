@@ -5,6 +5,17 @@
 //! `lib.rs::run`'s setup callback) per Phase 2 C1-A redesign.
 //! Non-wallet commands (provider, explorer, txguard analysis, proxy,
 //! biometric storage helpers) remain on [`AppState`] / `AppHandle`.
+//!
+//! # Parallel mobile FFI surface (Phase 2 commit 9)
+//!
+//! Mobile clients reach the same `WalletService` via
+//! `rustok_mobile_bindings::WalletHandle` (uniffi-bindgen-react-native
+//! Object), bypassing this Tauri layer entirely. Both paths are active
+//! in production: desktop uses the Tauri command set below; mobile uses
+//! `WalletHandle`. Neither is deprecated — divergence reflects platform
+//! constraints (Tauri JSON-RPC IPC vs uniffi JNI / JSI). A future
+//! refactor (Phase 3+) may consolidate, but no `#[deprecated]` markers
+//! are placed here while both paths back live code.
 
 use std::sync::{Arc, Mutex};
 

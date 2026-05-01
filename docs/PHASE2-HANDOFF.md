@@ -1,14 +1,14 @@
 # Phase 2 — Session Handoff
 
-> **Дата:** 2026-04-30
-> **Branch:** `feat/phase2-core-api` (pushed up to commit 6)
-> **Phase 2 progress:** **6/11 commits done (54%)** — Groups A + B + C closed; D (swap) next.
+> **Дата:** 2026-05-01 (Phase 2 close)
+> **Branch:** `feat/phase2-core-api` (pushed up to commit 11)
+> **Phase 2 progress:** **11/11 commits done — DONE.** All groups (A + B + C + D + E) closed. C1-C4 constraints resolved (see `docs/PHASE-2-CONSTRAINTS.md` Resolution sections). Ready to merge to `main`.
 
 ---
 
 ## Что сделано
 
-### Commits (6 закрыты, на remote)
+### Commits (11 закрыты, на remote)
 
 | # | SHA | Title | Group | Net diff |
 |---|---|---|---|---|
@@ -18,8 +18,13 @@
 | 4 | `9dcc734` | `refactor(core): extract send/preview/balance services + chain_id getter` | B | +174/−31 |
 | 5 | `e918c6b` | `feat(core): EIP-191 sign_message + EIP-712 sign_typed_data primitives` | C | +207/−2 |
 | 6 | `ebfdfd7` | `feat(core): generic tx module — preview_transaction + sign_and_send_transaction` | C | +266/−0 |
+| 7 | `7657c22` | `feat(core): swap module — SwapProvider trait, ZeroXProvider, 0x API client, 1inch stub` | D | +1008/−0 |
+| 8 | `3e2c20f` | `feat(txguard): swap rules — router whitelist, slippage analysis, approval-to-DEX rule (opt-in API)` | D | +500/−8 |
+| 9 | `1a36cbd` | `feat(bindings): export 24 mobile commands via uniffi — WalletHandle object + mirror types + error taxonomy` | E | +1700/−133 |
+| 10 | `86d92fd` | `test(bindings): integration tests + RN DevHarness — 40 Rust tests, uniffi codegen verified, __DEV__ harness screen` | E | +1322/−3 |
+| 11 | (this commit) | `chore(docs): close Phase 2 — C1-C4 resolution + commands.rs mobile FFI parity note + handoff final state` | — | docs only |
 
-`origin/feat/phase2-core-api` синхронизирован. Groups A+B+C полностью closed: foundation hygiene, error taxonomy, wallet lifecycle, send service refactor, signing primitives, generic tx module.
+`origin/feat/phase2-core-api` синхронизирован. Все группы closed: foundation hygiene (A), wallet/send service refactor (B), signing primitives + generic tx (C), swap module + txguard rules (D), FFI exposure + DevHarness (E), Phase-2 close-out docs (—).
 
 ### Reviews пройдены
 
@@ -29,59 +34,33 @@
 - **Commit 4:** `/check` (7 findings applied) + `/rust-review` APPROVED-WITH-NITS (1 MEDIUM out-of-scope mods → resolved by selective `git add`; 3 LOW kept) + `/security-review` GO.
 - **Commit 5:** `/check` (7 findings applied) + `/rust-review` APPROVED-WITH-NITS (2 LOW: test-name overstatement + docstring completeness — accepted) + `/security-review` GO (EIP-712 byte-order verified, EIP-191 delegated to alloy, no new private-key materialization).
 - **Commit 6:** `/check` (7 findings applied) + `/rust-review` APPROVED-WITH-NITS (2 LOW perf: per-call ProviderBuilder + sequential RPCs — both deferred to Phase 4-5) + `/security-review` GO (trust boundary explicit, sanity checks correct, signer clone-and-drop safe, CREATE rejected).
+- **Commit 7:** `/check` (8 findings applied — Mutex-across-await scoped helpers, RateLimited variant restraint, hard-cap simplification, etc.) + `/rust-review` APPROVED (0 CRITICAL/HIGH; 1 MEDIUM applied — `e.without_url()` PII protection in `SwapError::Http`/`Parse`; 1 MEDIUM withdrawn после анализа — `preview_transaction` never returns `SendError::Blocked`) + `/security-review` GO (0 findings ≥0.8 confidence; 11 attack vectors verified clean).
+- **Commit 8:** `/check` (6 findings applied — primary-source router verification via WebFetch; opt-in `analyze_swap` API rather than engine integration; др.) + `/rust-review` APPROVED-WITH-NITS (0 CRITICAL/HIGH; 1 MEDIUM applied — `check_unknown_router` restricted to `TransactionAction::Unknown` to avoid misleading false-positive on approve/transfer; regression test `approve_target_does_not_fire_unknown_router` added; 2 LOW deferred) + `/security-review` GO (0 findings ≥0.8 confidence; 13 attack vectors verified clean).
+- **Commit 9:** `/check` (8 findings applied — mirror type count revised 7→13, Zeroizing FFI trust boundary documented, recursive `WalletServiceError → BindingsError` flattening explicit, `tracing::error!` per-impl, dropped tokio runtime dep, `slippage_bps` mirror, `B256` hex format) + `/rust-review` APPROVED (0 CRITICAL/HIGH/MEDIUM; 5 LOW; 1 applied — `unlock_wallet` docstring) + `/security-review` GO (0 findings ≥0.8 confidence; 13 attack vectors verified clean).
+- **Commit 10:** `/check` (7 findings applied — `react-native-fs` dep, password/mnemonic input flows, uniffi codegen risk gated trial run) + `/rust-review` APPROVED (0 CRITICAL/HIGH/MEDIUM; 5 LOW; 1 applied — structural assertion replacing description-substring) + `/typescript-review` (1 error + 2 warning + 2 suggestion all applied — sensitive-data UI fix, `WalletHandle` constructor try/catch fallback, explicit lock checks via `Promise.all`, removed `samplePassword` indirection, App.tsx docstring update) + `/security-review` GO (0 findings ≥0.8 confidence; 18 attack vectors verified clean).
+- **Commit 11:** `/check` (7 findings applied — handoff scope under-estimate corrected to ~280 lines, `NATIVE-MIGRATION-PLAN.md` Phase-2-done marker added, C2 attribution «commits 2-9» refined, `/rust-review` mandate respected even on docstring-only Rust change, Resolution sections each cite commit SHA + tests + compensating controls + verification artefacts, `cargo doc` gate added). Pure docs change, 0 production code surface.
 
-### Spike 0 (pre-Phase 2) — uniffi async
+### Spike 0 (pre-Phase 2) — uniffi async — **VALIDATED**
 
-`uniffi 0.31.0-2` async fn export verification. **Outcome: GO (partial via codegen evidence)**. Runtime test deferred — first real device exercise lands в commit 9 (FFI exposure) or commit 10 (RN smoke harness). Generic tx module (commit 6) introduces real async surface; Spike 0 invariant unchanged but pending validation.
+`uniffi 0.31.0-2` async fn export verification. **Outcome: GO** (originally partial via codegen evidence; commit 10 (`86d92fd`) confirmed end-to-end via successful `npm run ubrn:android` regen of 22 async-fn-on-Object methods + 13 records + 3 enums + 6 error sub-enums; generated TS 3635 lines / 50 exports compiles clean (`npx tsc --noEmit`)). Real iOS/Android device runtime validation pending Phase 5 / M5 (Mac session).
 
 ---
 
-## Что дальше — commit 7 scope
+## Phase 2 — DONE
 
-**Title:** `feat(core): swap module — SwapProvider trait, ZeroXProvider, types, 0x API client (1inch as todo!() stub)`
+**Test count:** 113 (M3 baseline) → 227 (Phase 2 close, 0 failed). Net new: +114 tests.
 
-**Group:** D (swap + txguard).
+**Lines changed across all 11 commits:** ~6500 net new (Rust + TS), ~530 net deleted (Tauri commands.rs delegation refactor).
 
-**Estimate:** ~5-7h pure work + reviews ≈ 8-10h realistic. Largest commit since wallet lifecycle (commit 3).
+**Highlights:**
+- `WalletService` (commit 3) closed C1-A — encrypted-at-rest mnemonic + reveal-once + Argon2id discipline (4/4 paths in `spawn_blocking`).
+- `BindingsError` taxonomy (commit 2 placeholder, commits 3-9 populate) closed C2/C3 — 7-variant top-level + 6 sub-kind enums totalling 32 concrete variants. Path A (`thiserror::Error` per sub-kind) enforces no-payload-leak by typesystem.
+- 0x swap module (commit 7) — first external HTTP API client to non-RPC endpoint. 30s in-memory cache with TTL eviction + `PoisonError` recovery. PII protection via `e.without_url()`.
+- txguard swap rules (commit 8) — `analyze_swap` opt-in API. Router whitelist verified primary-source via WebFetch (Optimism's distinct 0x proxy address `0xdef1abe...` correctly handled vs unified `0xdef1c0...` on other chains).
+- Mobile FFI surface (commit 9) — `WalletHandle` `#[uniffi::Object]` + 22 async fn methods + 2 free fns + 13 mirror records + 3 enums. Spike 0 validated end-to-end via codegen success (commit 10).
+- Integration tests + DevHarness (commit 10) — 40 new Rust tests + `__DEV__`-gated TSX smoke screen. uniffi codegen confirmed 3635 lines TS / 50 exports for `WalletHandle` surface.
 
-**Files affected (предположительно):**
-
-NEW:
-- `crates/core/src/swap/mod.rs` — `pub mod zero_x; pub mod types;` + `pub trait SwapProvider`.
-- `crates/core/src/swap/types.rs` — `QuoteParams`, `SwapQuote`, `SwapPreview`, `LiquiditySource`, `SwapError`.
-- `crates/core/src/swap/zero_x.rs` — `pub struct ZeroXProvider { client: reqwest::Client, api_key: Option<String> }` + `impl SwapProvider`.
-- `crates/core/src/swap/one_inch.rs` (или inline в mod.rs) — `pub struct OneInchProvider;` с `todo!()` заглушкой методов trait per operator decision (1inch — stub, не функциональная).
-
-MODIFIED:
-- `crates/core/src/lib.rs` — `pub mod swap;`.
-- `crates/core/Cargo.toml` — возможно нужен `serde` features для quote response deserialization (verify уже есть).
-
-NOT MODIFIED в commit 7 (ставится в commit 8):
-- `crates/txguard/src/rules/swap.rs` — swap-specific rules (router whitelist, slippage, approval analysis). Отдельный commit для txguard side.
-
-**Goal:**
-- Implement 0x Swap API v1 client (primary): `/swap/v1/quote` endpoint → `SwapQuote { to, data, value, gas, buyAmount, allowanceTarget, sources, ... }`.
-- Establish `SwapProvider` trait abstraction для будущей замены/добавления провайдеров.
-- 1inch stub demonstrates trait extensibility без полной реализации.
-- API key через `option_env!("ZERO_X_API_KEY")` Rust-side (per operator-locked decision; proxy в Phase 8).
-- Quote cache 30s TTL (per SWAP-INTEGRATION-PLAN.md §11 R2 mitigation).
-- НЕ broadcast — quote только returns calldata; broadcast делается через `crate::sign::sign_and_send_transaction(keyring, provider, tx_from_quote, chain_id)` (commit 6).
-
-**NOT в этом commit:**
-- txguard swap rules (commit 8)
-- WalletService::get_swap_quote / execute_swap orchestration wrappers (commit 9 FFI или earlier если permit signing для commit 7 нужен)
-- Tauri commands swap UI (commit 9-10)
-- 1inch full implementation (post-Phase 2 если нужен)
-- Token list API (`/swap/v1/tokens`) — commit 9-10 при UI
-- Approval flow (2-step approve+swap) — commit 9-10 UI orchestration
-- WalletConnect adapter (post-Phase 5)
-
-**Skills для commit 7:**
-- `/codex` ✓ already loaded (architecture + pipeline)
-- `/rust` ✓ already loaded (CORE.md)
-- `/check` — обязательно после составления плана (это будет largest /check сессия)
-- `/rust-review` — обязательно перед коммитом
-- `/security-review` — **обязателен** (HTTP API client + JSON deserialization внешнего источника = новый attack surface)
+**Phase 2 entry conditions reconciled:** all C1-C4 closed (see `docs/PHASE-2-CONSTRAINTS.md` Resolution sections). Branch `feat/phase2-core-api` ready for PR to `main`.
 
 ---
 
@@ -265,41 +244,43 @@ cargo check -p rustok-desktop
 
 ---
 
-## Open risks / blockers
+## Phase 2 risks reconciliation
 
-### Active risks (commit 7-related)
+Risks tracked at Phase 2 start (post-commit-6 handoff). Status as of close (2026-05-01):
 
-1. **uniffi async on real device** — Spike 0 partial GO via codegen. Runtime validation deferred to commit 9-10 (mobile FFI exposure / DevHarness). Risk: device test может выявить runtime issue в `sign_and_send_transaction` или future `get_swap_quote` async chain, потребует blocking-on-runtime adapter pattern.
+1. **uniffi async on real device** — **Validated (codegen)**, **runtime deferred**. Commit 10 (`86d92fd`) successfully ran `npm run ubrn:android` end-to-end producing 3635 lines of TS bindings (50 exports) for `WalletHandle` `#[uniffi::Object]` with 22 async fn methods. Rust-side `#[tokio::test]` integration tests (`crates/rustok-mobile-bindings/tests/`) exercise the same FFI surface through a real tokio runtime. Real iOS / Android device runtime test pending Phase 5 / M5 Mac session via DevHarness — `mobile/src/screens/_DevHarness.tsx` ready for activation.
+2. **alloy mirror types для FFI** — **Materialized**. Commit 9 added 13 records + 3 enums + 5 hex/decimal parser helpers in `crates/rustok-mobile-bindings/src/types.rs` (~470 lines). All `Address`/`U256`/`Bytes`/`B256`/`Signature` exposure mediated via mirror types with explicit `From` conversions both directions where needed. Manageable boilerplate; one-time cost.
+3. **0x API rate limiting** — **Avoided in development**. Commit 7 quote cache 30s TTL applied per SWAP-INTEGRATION-PLAN.md §11 R2. API key configured via `option_env!("ZERO_X_API_KEY")` (compile-time, operator-locked). `SwapError::ProviderStatus` carries optional `retry_after_secs` parsed from `Retry-After` header for caller backoff. Forward: monitor production rates Phase 4-5.
+4. **0x API JSON shape evolution** — **Mitigation: ignore-unknown-fields posture**. After /check Finding 1 (commit 7), `#[serde(deny_unknown_fields)]` was deliberately NOT applied — vendor schema additions degrade gracefully via silent ignore rather than user-facing breakage. Only known fields parsed. Documented in `crates/core/src/swap/zero_x.rs` module docstring. Forward: Phase 4-5 if 0x switches to Permit2 / Allowance Holder shape.
+5. **Per-call ProviderBuilder anti-pattern (LOW from commit 6 review)** — **Still active**, deferred. `sign::sign_and_send_transaction_with_signer` (commit 9 helper) preserves the pattern from `sign::sign_and_send_transaction` (commit 6). Pre-existing in `send.rs::send_eth` baseline. Phase 4-5 cross-file refactor when persistent connection pool is justified by latency profiling.
 
-2. **alloy mirror types для FFI** — `U256`, `Address`, `Bytes`, `B256`, `Signature` не uniffi-derivable. Mirror types в bindings crate обязательны в commit 9. Estimate +1-2h на commit 9.
-
-3. **0x API rate limiting** — free tier rate limit. Mitigation: quote cache 30s TTL в commit 7 (per SWAP-INTEGRATION-PLAN.md §11). API key через `ZERO_X_API_KEY` env (operator-locked).
-
-4. **0x API JSON shape evolution** — 0x v1 API stable но could change. Mitigation: `#[serde(deny_unknown_fields)]` для defensive deserialization (per crypto.md / Codex rules).
-
-5. **Per-call ProviderBuilder anti-pattern (LOW from commit 6 review)** — sign_and_send creates fresh HTTP pool per call. Pre-existing pattern in send.rs. Defer to Phase 4-5 cross-file refactor.
-
-### Deferred items
+### Deferred items (carry forward to Phase 4-5)
 
 1. **Vuln 1 (atomic write)** — `std::fs::write` для keystore не атомичен. Phase 4 hardening.
 2. **Vuln 9 (signer clone lifetime в send_eth)** — pre-existing pattern. Phase 4 polish.
 3. **devDependencies duplicate в bridge package.json** (commit 1 nit) — Phase 4-5 hygiene.
-4. **`generate_mnemonic_phrase()` deprecated path** — known C1 violation. Removed Phase 4 cleanup.
+4. **`generate_mnemonic_phrase()` deprecated path** — known C1 violation surfaced for legacy desktop create-wallet wizard. Mobile bindings do NOT expose it. Removed Phase 4 cleanup.
 5. **`sign_message_known_vector` test name overstatement** (commit 5 LOW) — accept или rename в Phase 4-5.
-6. **`sign_typed_data` docstring manual-hash path** (commit 5 LOW) — accept или expand при first consumer (commit 7 EIP-2612).
-7. **Per-call ProviderBuilder + sequential RPCs** (commit 6 LOW × 2) — Phase 4-5 perf pass.
+6. **`sign_typed_data` docstring manual-hash path** (commit 5 LOW) — first consumer landed (commit 9 `WalletHandle::sign_typed_data` inline EIP-712 framing) — docstring still accurate but could expand with example. Phase 4-5.
+7. **Sequential RPCs in `sign::preview_transaction`** (commit 6 LOW) — `estimate_gas` then `gas_fees` serial. Phase 4-5 perf pass: `tokio::join!`.
+8. **Approval-to-DEX rule engine integration** (commit 8 deferral) — `analyze_swap` opt-in; `engine.analyze` pipeline integration deferred. Phase 4 if `preview_approval` orchestrator wanted.
+9. **Real-RPC integration tests** (commit 10 `#[ignore]` placeholders) — `get_wallet_balance`, `preview_send`, `get_transaction_history` против Arbitrum testnet. Phase 5 manual run with funded testnet wallet.
+10. **Description double-dot cosmetic** (commit 8 LOW) — `analyze_swap_extras` description merge can produce «..» if base ends in `.`. UI consumer reads `verdict.findings` primary. Phase 4 cosmetic polish.
 
-### Phase 2 entry conditions (still satisfied)
+### Phase 2 close checklist
 
-- ✅ M1+M2+M3+M4 closed (PR #10, #11 merged)
-- ✅ C1-C4 decisions approved (locked, all four closed)
-- ✅ SWAP-INTEGRATION-PLAN.md approved
-- ✅ Branch `feat/phase2-core-api` from main `9a59bd7`
-- ✅ `cargo test --workspace` green (146 tests as of commit 6)
+- ✅ All 11 commits merged to `feat/phase2-core-api`, pushed to `origin`.
+- ✅ C1-C4 closed (`docs/PHASE-2-CONSTRAINTS.md` Resolution sections).
+- ✅ `cargo test --workspace` green: 227 passed (113 M3 baseline + 114 net new), 0 failed.
+- ✅ `cargo clippy --workspace --all-targets -- -D warnings` clean.
+- ✅ `cargo fmt --all --check` clean.
+- ✅ `cd mobile && npx tsc --noEmit && npm run lint` clean.
+- ✅ `npm run ubrn:android` regen successful (commit 10).
+- ✅ All commits passed `/check` + `/rust-review` (where applicable) + `/security-review` (where applicable) + `/typescript-review` (where applicable). Zero CRITICAL / HIGH findings unresolved.
 
-### What blocks commit 7 — nothing
+### Phase 3 entry condition
 
-Audit step required: read SWAP-INTEGRATION-PLAN.md §3.3-3.4 (swap module structure), §6 (0x API endpoint shapes), §7 (txguard rules preview but defer impl to commit 8). ~30-45 min audit, then plan + /check + implementation.
+PR `feat/phase2-core-api → main` opened with this handoff doc as PR description scaffold. Reviewer APPROVED triggers merge. Post-merge: Phase 3 (UI redesign + design system) opens via separate plan doc.
 
 ---
 

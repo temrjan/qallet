@@ -81,7 +81,12 @@ async fn unknown_selector_falls_through_to_unknown_function_finding() {
     // the finding is surfaced + mirror enums map correctly. Avoids
     // depending on the verdict.description text format.
     assert!(matches!(verdict.action, ActionDto::Warn));
-    assert!(verdict.findings.iter().any(|f| f.rule == "unknown_function"));
+    assert!(
+        verdict
+            .findings
+            .iter()
+            .any(|f| f.rule == "unknown_function")
+    );
 }
 
 #[tokio::test]
