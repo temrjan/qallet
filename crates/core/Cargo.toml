@@ -38,9 +38,13 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 webpki-roots = "1"
 
-# Async
-tokio = { workspace = true }
+# Async — `sync` feature additive over workspace base (rt-multi-thread, macros)
+# for `tokio::sync::Mutex` used by the wallet service.
+tokio = { workspace = true, features = ["sync"] }
 futures = { workspace = true }
+
+# QR rendering for wallet receive screen (EIP-681 URI → SVG).
+qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 
 # Serialization
 serde = { workspace = true }
@@ -54,3 +58,4 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
+tempfile = "3"

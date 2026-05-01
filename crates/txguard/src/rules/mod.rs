@@ -9,5 +9,7 @@ mod contract;
 mod engine;
 mod permit;
 mod send;
+pub mod swap;
 
 pub use engine::RulesEngine;
+pub use swap::{SwapAnalysisContext, analyze_swap, analyze_swap_extras};

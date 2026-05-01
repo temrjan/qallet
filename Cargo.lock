@@ -6195,12 +6195,14 @@ dependencies = [
  "alloy-transport-http",
  "argon2",
  "futures",
+ "qrcode",
  "rand 0.8.5",
  "reqwest 0.13.2",
  "rustls",
  "rustok-types",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -6238,9 +6240,20 @@ dependencies = [
 name = "rustok-mobile-bindings"
 version = "0.1.0"
 dependencies = [
+ "alloy-network",
+ "alloy-primitives",
+ "alloy-rpc-types-eth",
+ "alloy-signer",
+ "alloy-signer-local",
  "rustok-core",
+ "rustok-types",
+ "tempfile",
  "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "txguard",
  "uniffi",
+ "zeroize",
 ]
 
 [[package]]

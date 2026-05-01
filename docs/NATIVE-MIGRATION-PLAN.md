@@ -93,12 +93,17 @@ ls docs/
 
 | Скилл | Когда использовать | Когда НЕ использовать |
 |-------|---------------------|------------------------|
-| `/codex` | ОБЯЗАТЕЛЬНО перед любой кодовой работой | Вопросы, исследование, опечатки, комментарии |
-| `/typescript` | TS/React Native код | Rust |
-| `/rust` | Rust код (core, txguard, bindings) | TS/JS |
-| `/check` | После каждого плана/решения/анализа | Тривиальные ответы |
+| `/rust` | Rust код (core, txguard, bindings) — загрузка стандартов | TS/JS |
+| `/typescript` | TS/React Native код — загрузка стандартов | Rust |
+| `/codex` | Multi-stack или язык не определён | Когда язык известен |
+| `/workflow <задача>` | Старт любой нетривиальной задачи | Тривиальные фиксы |
+| `/check` | Adversarial review плана (≥5 проблем, 5 категорий). Gate planning→coding | Тривиальные ответы |
+| `/selfcheck` | Самопроверка последнего ответа Claude (sequential thinking) | — |
+| `/rust-review` | Перед коммитом Rust изменений (НИКОГДА не пропускать!) | — |
 | `/typescript-review` | Перед коммитом TS изменений (НИКОГДА не пропускать!) | — |
-| `/rust-review` | Перед коммитом Rust изменений | — |
+| `/review` | Cross-language PR или diff ≥200 строк (флот 5 агентов) | Per-commit одного языка |
+| `/security-review` | Любые изменения в crypto/auth/secrets/txguard | — |
+| `/verify` | После деплоя / smoke test | — |
 | `/quality-check` | Периодически — проверка свежих best practices | — |
 
 **Правило:** review skill на КАЖДЫЙ diff перед коммитом. Не лениться даже на мелких фиксах.
@@ -515,7 +520,25 @@ rustok/
 
 ---
 
-### Фаза 2 — Core API extraction + Signing Pipeline (2-3 недели, 4-6 коммитов)
+### Фаза 2 — Core API extraction + Signing Pipeline (2-3 недели, 4-6 коммитов) — **DONE 2026-05-01**
+
+> **Status:** Phase 2 closed 2026-05-01 на ветке `feat/phase2-core-api`. Ландят 11 atomic коммитов (план scope расширился с 4-6 до 11 при детализации):
+>
+> 1. `bd7174d` — C4 hoisting fix (peerDependencies)
+> 2. `e232c20` — BindingsError taxonomy (C2/C3)
+> 3. `e6cd6a0` — wallet lifecycle service (C1-A: encrypt-at-rest + reveal-once)
+> 4. `9dcc734` — send / preview / balance services + chain_id getter
+> 5. `e918c6b` — EIP-191 sign_message + EIP-712 sign_typed_data primitives
+> 6. `ebfdfd7` — generic tx module (preview_transaction + sign_and_send_transaction)
+> 7. `7657c22` — swap module (SwapProvider trait + ZeroXProvider + 1inch stub)
+> 8. `3e2c20f` — txguard swap rules (router whitelist + slippage + approval-to-DEX)
+> 9. `1a36cbd` — uniffi FFI exposure (24 commands via WalletHandle)
+> 10. `86d92fd` — integration tests + RN DevHarness + uniffi codegen verified
+> 11. (this commit) — Phase 2 close-out docs (C1-C4 Resolution sections + handoff final state)
+>
+> Tests: 113 (M3 baseline) → 227 (Phase 2 close), 0 failed. C1-C4 закрыты — см. `docs/PHASE-2-CONSTRAINTS.md` Resolution sections. Полный handoff: `docs/PHASE2-HANDOFF.md`.
+>
+> PR `feat/phase2-core-api → main` следующий шаг. Phase 3 onset triggers separate plan.
 
 **Цель:** Перенести бизнес-логику из `commands.rs` в `rustok-core`, экспортировать через uniffi всё что нужно UI. Добавить signing pipeline и swap module в ядро.
 

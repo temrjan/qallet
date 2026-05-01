@@ -165,4 +165,16 @@ mod tests {
         unique.dedup();
         assert_eq!(ids.len(), unique.len(), "duplicate chain IDs");
     }
+
+    /// Invariant relied on by `MultiProvider::primary_chain_id`: Ethereum
+    /// (id=1) is the first entry. Reordering this list silently changes
+    /// the UI network badge — keep this assertion in sync if intentional.
+    #[test]
+    fn default_chains_starts_with_ethereum() {
+        assert_eq!(
+            default_chains().first().expect("non-empty").id,
+            1,
+            "Ethereum (id=1) must remain the first chain"
+        );
+    }
 }

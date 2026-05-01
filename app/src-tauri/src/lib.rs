@@ -6,7 +6,9 @@ mod commands;
 use commands::AppState;
 use rustok_core::explorer::ExplorerClient;
 use rustok_core::provider::MultiProvider;
-use std::sync::Mutex;
+use rustok_core::wallet::WalletService;
+use std::sync::{Arc, Mutex};
+use tauri::Manager;
 
 fn init_tracing() {
     use tracing_subscriber::prelude::*;
@@ -43,7 +45,18 @@ pub fn run() {
         .manage(AppState {
             provider: Mutex::new(MultiProvider::default_chains()),
             explorer: ExplorerClient::new(),
-            wallet: Mutex::new(None),
+        })
+        .setup(|app| {
+            // `WalletService` requires `app_data_dir`, which is only resolvable
+            // after Tauri has the app handle (i.e., after `manage()`). Register
+            // it via `setup` and use `Arc` so commands can extract a cheap clone.
+            let data_dir = app
+                .handle()
+                .path()
+                .app_data_dir()
+                .map_err(|e| format!("no app data dir: {e}"))?;
+            app.manage(Arc::new(WalletService::new(data_dir)));
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_balance,
@@ -68,6 +81,7 @@ pub fn run() {
             commands::get_transaction_history,
             commands::get_proxy_enabled,
             commands::set_proxy_enabled,
+            commands::get_chain_id,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

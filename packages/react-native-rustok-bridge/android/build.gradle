@@ -52,6 +52,12 @@ def supportsNamespace() {
 android {
   if (supportsNamespace()) {
     namespace "com.rustok.bridge"
+
+    sourceSets {
+      main {
+        manifest.srcFile "src/main/AndroidManifestNew.xml"
+      }
+    }
   }
 
   ndkVersion getExtOrDefault("ndkVersion")

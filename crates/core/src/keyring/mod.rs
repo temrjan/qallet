@@ -9,6 +9,10 @@
 mod local;
 
 pub use local::LocalKeyring;
+// Crate-internal re-exports so the wallet service can re-use the keyring's
+// Argon2id + AES-256-GCM primitives for at-rest mnemonic encryption without
+// duplicating crypto code.
+pub(crate) use local::{decrypt_key, encrypt_key};
 
 use alloy_primitives::{Address, B256};
 use thiserror::Error;

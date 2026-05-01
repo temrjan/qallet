@@ -25,7 +25,8 @@
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "uniffi-bindgen-react-native": "0.31.0-2"
   },
   "devDependencies": {
     "uniffi-bindgen-react-native": "0.31.0-2",
