@@ -91,16 +91,26 @@ pub fn quote_to_transaction(
         .with_chain_id(quote.chain_id))
 }
 
-/// Run `txguard` analysis + gas estimate for a swap quote.
+/// Run `txguard` analysis + gas estimate for a swap quote, merging
+/// swap-specific rules (router whitelist, slippage analysis) on top of
+/// the baseline verdict.
 ///
 /// Wraps [`crate::sign::preview_transaction`] using `quote.taker_address`
-/// as the `from` address. Always returns `Ok` even when the verdict
-/// blocks; UI must inspect `verdict.action` before signing.
+/// as the `from` address; then re-parses calldata and invokes
+/// [`txguard::rules::analyze_swap_extras`] to produce the final merged
+/// verdict. Always returns `Ok` even when the verdict blocks; UI must
+/// inspect `verdict.action` before signing.
+///
+/// Calldata is re-parsed locally because
+/// [`crate::sign::preview_transaction`] discards the parsed structure
+/// after building its own verdict — re-parsing is microsecond-scale
+/// and avoids reshaping the public `TransactionPreview` struct for one
+/// consumer.
 ///
 /// # Errors
 ///
-/// - [`SwapError::Preview`] if the underlying preview pipeline fails
-///   (calldata parse, RPC).
+/// - [`SwapError::Preview`] if either preview pipeline fails (calldata
+///   parse, RPC, txguard).
 pub async fn preview_swap(
     provider: &MultiProvider,
     quote: &SwapQuote,
@@ -114,8 +124,15 @@ pub async fn preview_swap(
         .await
         .map_err(|e| SwapError::Preview(format!("{e}")))?;
 
-    let warnings: Vec<String> = preview
-        .verdict
+    let parsed = txguard::parser::parse(quote.to, &quote.data, quote.value)
+        .map_err(|e| SwapError::Preview(format!("re-parse calldata: {e}")))?;
+    let swap_ctx = txguard::rules::SwapAnalysisContext {
+        chain_id: quote.chain_id,
+        slippage_bps: quote.slippage_bps,
+    };
+    let merged_verdict = txguard::rules::analyze_swap_extras(preview.verdict, &parsed, &swap_ctx);
+
+    let warnings: Vec<String> = merged_verdict
         .findings
         .iter()
         .map(|f| f.description.clone())
@@ -123,7 +140,7 @@ pub async fn preview_swap(
 
     Ok(SwapPreview {
         quote: quote.clone(),
-        verdict: preview.verdict,
+        verdict: merged_verdict,
         warnings,
         gas_cost_eth: preview.estimated_gas_cost_wei,
         total_cost_eth: preview.total_cost_wei,
@@ -139,6 +156,7 @@ mod tests {
         SwapQuote {
             provider: "0x".to_string(),
             chain_id: 1,
+            slippage_bps: 50,
             taker_address: address!("d8dA6BF26964aF9D7eEd9e03E53415D37aA96045"),
             sell_token: address!("EeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"),
             buy_token: address!("A0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"),

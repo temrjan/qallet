@@ -37,6 +37,11 @@ pub struct SwapQuote {
     pub provider: String,
     /// Chain id this quote is bound to.
     pub chain_id: u64,
+    /// Slippage tolerance in basis points (50 = 0.5%). Propagated from
+    /// `QuoteParams` so downstream `txguard` swap rules can analyse it
+    /// without re-deriving from `buy_amount` / `minimum_buy_amount`
+    /// (which loses precision through integer division).
+    pub slippage_bps: u16,
     /// Taker baked into calldata.
     pub taker_address: Address,
     /// Source token.

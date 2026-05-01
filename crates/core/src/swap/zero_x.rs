@@ -263,6 +263,7 @@ fn build_quote(dto: ZeroXQuoteResponse, params: &QuoteParams) -> SwapQuote {
     SwapQuote {
         provider: PROVIDER_NAME.to_string(),
         chain_id: params.chain_id,
+        slippage_bps: params.slippage_bps,
         taker_address: params.taker_address,
         sell_token: params.sell_token,
         buy_token: params.buy_token,
@@ -334,6 +335,7 @@ mod tests {
         SwapQuote {
             provider: PROVIDER_NAME.to_string(),
             chain_id: params.chain_id,
+            slippage_bps: params.slippage_bps,
             taker_address: params.taker_address,
             sell_token: params.sell_token,
             buy_token: params.buy_token,
@@ -513,6 +515,7 @@ mod tests {
         assert_eq!(quote.minimum_buy_amount, U256::from(9_950u128));
         assert_eq!(quote.chain_id, params.chain_id);
         assert_eq!(quote.taker_address, params.taker_address);
+        assert_eq!(quote.slippage_bps, params.slippage_bps);
         assert_eq!(quote.provider, PROVIDER_NAME);
     }
 
