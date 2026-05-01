@@ -148,10 +148,29 @@ pub async fn preview_transaction(
 pub async fn sign_and_send_transaction(
     keyring: &LocalKeyring,
     provider: &MultiProvider,
+    tx: TransactionRequest,
+    chain_id: u64,
+) -> Result<B256, SendError> {
+    sign_and_send_transaction_with_signer(keyring.signer(), provider, tx, chain_id).await
+}
+
+/// Sign and broadcast an arbitrary transaction using a `PrivateKeySigner`
+/// directly. Same semantics as [`sign_and_send_transaction`]; this is the
+/// signer-only variant introduced for FFI bindings (commit 9), where the
+/// caller holds a cloned `PrivateKeySigner` rather than a full
+/// `LocalKeyring` (the keyring's encrypted-bytes / label are irrelevant
+/// to a transient signing call).
+///
+/// # Errors
+///
+/// See [`sign_and_send_transaction`].
+pub async fn sign_and_send_transaction_with_signer(
+    signer: &alloy_signer_local::PrivateKeySigner,
+    provider: &MultiProvider,
     mut tx: TransactionRequest,
     chain_id: u64,
 ) -> Result<B256, SendError> {
-    let signer = keyring.signer().clone();
+    let signer = signer.clone();
     let from = signer.address();
 
     // Sanity check: caller-provided chain_id / from MUST match the
