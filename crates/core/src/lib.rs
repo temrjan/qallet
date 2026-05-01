@@ -22,4 +22,5 @@ pub mod provider;
 pub mod router;
 pub mod send;
 pub mod sign;
+pub mod swap;
 pub mod wallet;
