@@ -8,7 +8,7 @@
 
 Production Ethereum wallet (Android + iOS). React Native 0.85.2 + uniffi-bindgen-react-native + Rust core (rustok-core + txguard). Мигрировали с Tauri+Leptos на 2026-04-28.
 
-**Текущая фаза:** Phase 1 — Foundation. **M1+M2+M3+M4 closed.** M3 closed 2026-04-29 (PR #10 merged); M4 closed 2026-04-30 — Android E2E на физ. устройстве (Xiaomi), <100ms cold call, FLAG_SECURE применён. M5 next (iOS parity на Mac). Working branch: `main`. См. `docs/M3-RETROSPECTIVE.md` + `docs/M4-PROGRESS.md`.
+**Текущая фаза:** **Phase 2 DONE 2026-05-01** (PR #13 merged) — Core API extraction + Signing Pipeline + Swap Module + Mobile FFI. Phase 1 ✓ (M1+M2+M3+M4 closed; M5 iOS parity deferred to Mac session). 11 atomic коммитов, 227 tests (113 → 227, 0 failed), C1-C4 constraints closed (см. `docs/PHASE-2-CONSTRAINTS.md` Resolution sections), Spike 0 (uniffi async) validated end-to-end. **Phase 3 next** — Design system + AppShell (separate plan doc opens at onset). Working branch: `main`. См. `docs/PHASE2-HANDOFF.md` (final state) + `docs/NATIVE-MIGRATION-PLAN.md` Фаза 2 DONE marker.
 
 ## Start every session with
 
@@ -70,6 +70,9 @@ adb reverse tcp:8081 tcp:8081
 
 - Strategy: `docs/NATIVE-MIGRATION-PLAN.md`
 - Phase 1 plan: `docs/POC-FOUNDATION.md`
+- Phase 2 final state: `docs/PHASE2-HANDOFF.md` (11 commits trail, reviews, risks reconciliation)
+- Phase 2 constraints: `docs/PHASE-2-CONSTRAINTS.md` (C1-C4 with Resolution sections)
+- Reviewer constitution: `docs/REVIEWER-CONSTITUTION.md`
 - Repo: https://github.com/temrjan/rustok
 - CI: https://github.com/temrjan/rustok/actions
 

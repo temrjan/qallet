@@ -284,14 +284,14 @@ PR `feat/phase2-core-api → main` opened with this handoff doc as PR descriptio
 
 ---
 
-## Memory state at handoff
+## Memory state at Phase 2 close (2026-05-01)
 
-- `project_rustok_status.md` — needs update to «Phase 2 in progress 6/11 commits done; Groups A+B+C closed; commit 7 (swap module) next». Update в конце commit-6 session или start commit-7 session.
-- `MEMORY.md` index — line про Rustok status показывает «Phase 2 in progress 5/11 commits done (Groups A+B closed; Group C 1/2)» (post commit 5 update). Needs bump до 6/11 (Groups A+B+C closed).
-- `feedback_push_policy.md` — действует, push после каждого commit (cadence 1 атомарный коммит на ветке backed up by remote).
-- `feedback_review_skills_trigger.md` — действует, все commits пройдены.
-- `feedback_verify_rule.md` — действует, все claims о коде verified через Read/Grep + alloy source registry checks.
+- `project_rustok_status.md` — Phase 2 **DONE** 11/11 commits + C1-C4 resolved; PR #13 merged.
+- `MEMORY.md` index — banner reflects Phase 2 DONE.
+- `feedback_push_policy.md` — выполнено: push каждые 2-3 атомарных коммита (final push: PR #13 merge).
+- `feedback_review_skills_trigger.md` — выполнено: все 11 commits passed `/check` + `/rust-review` + `/security-review` (где applicable) + `/typescript-review` (где applicable). 0 CRITICAL/HIGH unresolved.
+- `feedback_verify_rule.md` — выполнено: все code claims verified through Read/Grep, router addresses primary-source-verified via WebFetch (commit 8).
 
 ---
 
-**Конец handoff.** Новая сессия может начинать с `git status` + read этого документа + commit 7 audit (SWAP-INTEGRATION-PLAN.md §3.3-3.4, §6, §7).
+**Конец Phase 2.** Новая сессия — Phase 3 onset (Design system + AppShell) — открывается через separate plan doc.
