@@ -13,6 +13,9 @@
  * NativeWind babel/metro pipeline works).
  */
 
+// Side-effect import: required by react-native-gesture-handler on Android
+// for system back gesture / native handler registration. Must be first.
+import 'react-native-gesture-handler';
 import './global.css';
 import { useState } from 'react';
 import {
@@ -27,19 +30,32 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { generateMnemonic } from 'react-native-rustok-bridge';
 import DevHarness from './src/screens/_DevHarness';
 import ComponentsScreen from './src/screens/_ComponentsScreen';
 import { ThemeProvider } from './src/components/ThemeProvider';
+import { ToastProvider } from './src/components';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <AppContent isDarkMode={isDarkMode} />
-      </SafeAreaProvider>
+      <GestureHandlerRootView style={styles.rootFlex}>
+        <BottomSheetModalProvider>
+          <SafeAreaProvider>
+            <StatusBar
+              barStyle={isDarkMode ? 'light-content' : 'dark-content'}
+            />
+            <AppContent isDarkMode={isDarkMode} />
+            {/* ToastProvider mounts inside SafeAreaProvider so toasts
+                respect device notches; rendered last so it overlays
+                everything above. */}
+            <ToastProvider />
+          </SafeAreaProvider>
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
     </ThemeProvider>
   );
 }
@@ -124,6 +140,9 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
 }
 
 const styles = StyleSheet.create({
+  rootFlex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     paddingHorizontal: 24,
