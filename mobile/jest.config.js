@@ -9,6 +9,9 @@ module.exports = {
   // (deferred to Phase 3 M4 along with the broader CI updates).
   testPathIgnorePatterns: ['/node_modules/', '<rootDir>/__tests__/App.test.tsx'],
   collectCoverageFrom: ['src/stores/**/*.ts'],
+  // Component tests deferred to M4 (alongside CI updates + App.test bridge
+  // mock surface). Visual smoke for components is manual via
+  // _ComponentsScreen on a real device.
   coverageThreshold: {
     './src/stores/': {
       lines: 80,
