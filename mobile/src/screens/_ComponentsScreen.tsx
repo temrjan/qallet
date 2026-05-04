@@ -1,22 +1,34 @@
 /**
- * _ComponentsScreen — Phase 3 M1 Commit 2.
+ * _ComponentsScreen — Phase 3 M2 Commit 3.
  *
- * Dev-only surface for smoke-testing the theme switcher and verifying
- * that NativeWind className compilation is alive end-to-end. Not a
- * production screen — gated by `__DEV__` in App.tsx, follows the `_`
- * prefix pattern of `_DevHarness`.
+ * Dev-only catalog for visually verifying the M2 component library
+ * (Button, Input, Spinner, Switch, Modal, Toast, PageHeader) plus the
+ * M1 theme switcher and bridge smoke check.
  *
- * Smoke calls `generateMnemonic` (top-level bridge function, no
- * WalletHandle instance required) to confirm the rustok-mobile-bindings
- * FFI is still wired after the NativeWind installation. WalletHandle
- * surface is exercised in `_DevHarness` separately.
+ * Gated by __DEV__ in App.tsx. Follows the `_` prefix pattern of
+ * `_DevHarness`. Single source of truth for theme parity verification
+ * on real devices (Хэд's manual gate).
  */
 
 import { useEffect, useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import {
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { generateMnemonic } from 'react-native-rustok-bridge';
 import { useThemeStore, VALID_MODES } from '../stores/themeStore';
+import {
+  Button,
+  Input,
+  Modal,
+  PageHeader,
+  Spinner,
+  Switch,
+  toast,
+} from '../components';
 
 interface ComponentsScreenProps {
   onBack: () => void;
@@ -24,11 +36,20 @@ interface ComponentsScreenProps {
 
 type BridgeStatus = 'idle' | 'ok' | 'fail';
 
+const BUTTON_VARIANTS = ['primary', 'secondary', 'ghost', 'danger'] as const;
+const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;
+
 function ComponentsScreen({ onBack }: ComponentsScreenProps) {
   const insets = useSafeAreaInsets();
   const mode = useThemeStore((s) => s.mode);
   const setMode = useThemeStore((s) => s.setMode);
+
   const [bridgeStatus, setBridgeStatus] = useState<BridgeStatus>('idle');
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
+  const [switchValue, setSwitchValue] = useState(false);
+  const [textValue, setTextValue] = useState('');
+  const [passwordValue, setPasswordValue] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -52,9 +73,14 @@ function ComponentsScreen({ onBack }: ComponentsScreenProps) {
   }, []);
 
   return (
-    <View
-      className="flex-1 bg-canvas px-6"
-      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+    <ScrollView
+      className="flex-1 bg-canvas"
+      // eslint-disable-next-line react-native/no-inline-styles -- safe-area insets are dynamic per device.
+      contentContainerStyle={{
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom + 32,
+        paddingHorizontal: 24,
+      }}
     >
       <TouchableOpacity onPress={onBack} className="py-3">
         <Text className="text-accent-periwinkle text-base">← Back</Text>
@@ -64,9 +90,10 @@ function ComponentsScreen({ onBack }: ComponentsScreenProps) {
         Components
       </Text>
       <Text className="text-ink-muted text-sm mb-6">
-        Phase 3 M1 — theme switcher smoke
+        Phase 3 M2 — component library catalog
       </Text>
 
+      {/* ─── Theme mode (M1) ─────────────────────────────── */}
       <Text className="text-ink-muted text-xs uppercase mb-2">Theme mode</Text>
       <View
         accessibilityRole="radiogroup"
@@ -93,19 +120,211 @@ function ComponentsScreen({ onBack }: ComponentsScreenProps) {
         })}
       </View>
 
-      <Text className="text-ink-muted text-xs uppercase mb-2">
-        Visual sample (auto-themed)
-      </Text>
-      <View
-        accessible={false}
-        className="bg-canvas border border-ink-muted rounded-lg h-24 mb-6"
-      />
-
+      {/* ─── Bridge smoke (M1) ───────────────────────────── */}
       <Text className="text-ink-muted text-xs uppercase mb-2">Bridge</Text>
-      <Text className="text-ink-primary text-sm">
+      <Text className="text-ink-primary text-sm mb-6">
         generateMnemonic: {bridgeStatus}
       </Text>
-    </View>
+
+      {/* ─── Buttons (M2) ────────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        Buttons
+      </Text>
+      <View className="mb-6">
+        {BUTTON_VARIANTS.map((variant) => (
+          <View key={variant} className="flex-row flex-wrap mb-2">
+            {BUTTON_SIZES.map((size) => (
+              <View key={size} className="mr-2 mb-2">
+                <Button
+                  variant={variant}
+                  size={size}
+                  onPress={() => toast.info(`${variant}/${size} pressed`)}
+                  accessibilityLabel={`${variant} ${size} button`}
+                >
+                  {`${variant}/${size}`}
+                </Button>
+              </View>
+            ))}
+          </View>
+        ))}
+        <View className="mt-1">
+          <Button
+            loading
+            onPress={() => undefined}
+            accessibilityLabel="Loading button"
+          >
+            Loading...
+          </Button>
+        </View>
+      </View>
+
+      {/* ─── Inputs (M2) ─────────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        Inputs
+      </Text>
+      <View className="mb-6">
+        <Input
+          label="Text input"
+          value={textValue}
+          onChangeText={setTextValue}
+          placeholder="Type here"
+        />
+        <Input
+          label="Password"
+          value={passwordValue}
+          onChangeText={setPasswordValue}
+          placeholder="••••••"
+          secureTextEntry
+        />
+        <Input
+          label="Email"
+          value="bad@@example"
+          onChangeText={() => undefined}
+          error="Invalid email format"
+        />
+      </View>
+
+      {/* ─── Spinner (M2) ────────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        Spinner
+      </Text>
+      <View className="flex-row items-center mb-6 gap-6">
+        <Spinner size="sm" />
+        <Spinner size="md" />
+        <Spinner size="lg" />
+      </View>
+
+      {/* ─── Switch (M2) ─────────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        Switch
+      </Text>
+      <View className="mb-6 gap-3">
+        <View className="flex-row items-center gap-3">
+          <Switch
+            value={switchValue}
+            onValueChange={setSwitchValue}
+            accessibilityLabel="Demo switch"
+          />
+          <Text className="text-ink-primary text-sm">
+            {switchValue ? 'On' : 'Off'}
+          </Text>
+        </View>
+        <View className="flex-row items-center gap-3">
+          <Switch
+            value={false}
+            onValueChange={() => undefined}
+            disabled
+            accessibilityLabel="Disabled switch"
+          />
+          <Text className="text-ink-muted text-sm">Disabled</Text>
+        </View>
+      </View>
+
+      {/* ─── Modal (M2) ──────────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        Modal
+      </Text>
+      <View className="mb-6 gap-2">
+        <Button
+          variant="primary"
+          onPress={() => setIsSheetOpen(true)}
+          accessibilityLabel="Open bottom sheet"
+        >
+          Open sheet (50%)
+        </Button>
+        <Button
+          variant="secondary"
+          onPress={() => setIsFullscreenOpen(true)}
+          accessibilityLabel="Open fullscreen modal"
+        >
+          Open fullscreen
+        </Button>
+      </View>
+
+      {/* ─── Toast (M2) ──────────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        Toast
+      </Text>
+      <View className="mb-6 gap-2">
+        <Button
+          variant="primary"
+          onPress={() => toast.success('Saved successfully')}
+          accessibilityLabel="Show success toast"
+        >
+          Success
+        </Button>
+        <Button
+          variant="danger"
+          onPress={() => toast.error('Network failed', 'Connection error')}
+          accessibilityLabel="Show error toast"
+        >
+          Error
+        </Button>
+        <Button
+          variant="secondary"
+          onPress={() => toast.info('Just so you know')}
+          accessibilityLabel="Show info toast"
+        >
+          Info
+        </Button>
+      </View>
+
+      {/* ─── PageHeader (M2) ─────────────────────────────── */}
+      <Text className="text-ink-muted text-xs uppercase mt-2 mb-2">
+        PageHeader
+      </Text>
+      <View className="-mx-6 mb-6">
+        <PageHeader
+          title="Sample"
+          onBack={() => toast.info('Back pressed')}
+          rightAction={{
+            label: 'Save',
+            onPress: () => toast.info('Save pressed'),
+          }}
+        />
+      </View>
+
+      {/* ─── Modals — rendered overlay-style; portal-mounted via gorhom Provider ── */}
+      <Modal
+        isOpen={isSheetOpen}
+        onClose={() => setIsSheetOpen(false)}
+        variant="sheet"
+      >
+        <Text className="text-ink-primary text-lg font-semibold mb-2">
+          Bottom sheet
+        </Text>
+        <Text className="text-ink-muted text-sm mb-4">
+          Swipe down or press Close to dismiss.
+        </Text>
+        <Button
+          variant="primary"
+          onPress={() => setIsSheetOpen(false)}
+          accessibilityLabel="Close bottom sheet"
+        >
+          Close
+        </Button>
+      </Modal>
+
+      <Modal
+        isOpen={isFullscreenOpen}
+        onClose={() => setIsFullscreenOpen(false)}
+        variant="fullscreen"
+      >
+        <Text className="text-ink-primary text-lg font-semibold mb-2">
+          Fullscreen modal
+        </Text>
+        <Text className="text-ink-muted text-sm mb-4">
+          Takes the full screen height (100% snap point).
+        </Text>
+        <Button
+          variant="primary"
+          onPress={() => setIsFullscreenOpen(false)}
+          accessibilityLabel="Close fullscreen modal"
+        >
+          Close
+        </Button>
+      </Modal>
+    </ScrollView>
   );
 }
 
