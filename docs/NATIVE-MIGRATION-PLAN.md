@@ -25,7 +25,7 @@
 - **Где живёт:** `C:\Claude\projects\rustok\` (ASCII-only после M2 path fix)
 - **Что делаем:** Мигрируем UI с Tauri+Leptos (WebView) на **React Native + uniffi-bindgen-react-native** (native UI, Rust core переиспользуется)
 - **Что НЕ делаем:** WebView в любой форме (Tauri+React план отменён 2026-04-28)
-- **Текущая фаза:** Phase 1 — Foundation. **M1+M2+M3 closed (2026-04-29 — PR #10 merged).** M4 next (Android E2E на физ. устройстве). См. `docs/POC-FOUNDATION.md` и `docs/M3-RETROSPECTIVE.md`.
+- **Текущая фаза:** **Phase 2 DONE (2026-05-01 — PR #13 merged).** Phase 3 next (Design system + AppShell). 11 atomic коммитов, 227 tests, C1-C4 closed, Spike 0 validated. См. `docs/PHASE2-HANDOFF.md` и `docs/PHASE-2-CONSTRAINTS.md`.
 - **Платформы:** Android + iOS only, desktop deferred
 - **Mainnet timeline:** свободный, фокус на качестве
 
@@ -36,8 +36,10 @@
 3. **`docs/POC-FOUNDATION.md`** — детальный план текущей фазы (если уже создан)
 4. **`C:/Users/omadg/.claude/projects/C--Claude/memory/project_rustok.md`** — проектная память
 5. **`app/src-tauri/src/commands.rs`** — baseline 22 команд которые мигрируют через uniffi
-6. **`docs/REVIEWER-CONSTITUTION.md`** — operating system для Reviewer-агента (v1.2). Загружать в начале каждой review-сессии.
-7. **`docs/_archive/FRONTEND-IMPLEMENTATION-WEBVIEW.md`** — отменённый план (только для понимания контекста; НЕ выполнять)
+6. **`docs/REVIEWER-CONSTITUTION.md`** — operating system для Reviewer-агента (v1.3). Загружать в начале каждой review-сессии.
+7. **`docs/PHASE2-HANDOFF.md`** — финальное состояние Phase 2 (11 commits, reviews, risks reconciliation)
+8. **`docs/PHASE-2-CONSTRAINTS.md`** — C1-C4 constraints с Resolution sections
+9. **`docs/_archive/FRONTEND-IMPLEMENTATION-WEBVIEW.md`** — отменённый план (только для понимания контекста; НЕ выполнять)
 
 > ⚠️ **ВНИМАНИЕ — устаревшие источники до Phase 8:**
 > - **`docs/SESSION.md`** — описывает старый стек (Tauri+Leptos), будет обновлён в Phase 8 (cleanup). До этого — **не трактовать как источник истины**, использовать ЭТОТ документ.
@@ -46,10 +48,10 @@
 
 **Команды для проверки состояния перед работой:**
 ```bash
-cd C:/Claude/projects/Дизайн/rustok
+cd C:/Claude/projects/rustok
 git status
 git log --oneline -10
-cargo test --workspace          # 110+ тестов должны быть green
+cargo test --workspace          # 227 тестов должны быть green
 ls docs/
 ```
 
@@ -249,7 +251,7 @@ ls mobile/ 2>/dev/null           # mobile dir уже создан?
 ls crates/rustok-mobile-bindings/ 2>/dev/null  # bindings crate существует?
 ```
 
-После этого — прочитать `docs/POC-FOUNDATION.md` (если существует — мы в Phase 1) или этот документ §4 (если POC ещё не создан — мы в pre-Phase 1).
+После этого — прочитать `docs/PHASE2-HANDOFF.md` (Phase 2 финальное состояние) и этот документ §4 (фазы). Текущая фаза: Phase 3 (Design system + AppShell).
 
 ## N. GitHub workflow + repo info
 
