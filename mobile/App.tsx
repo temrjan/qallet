@@ -29,14 +29,18 @@ import {
 } from 'react-native-safe-area-context';
 import { generateMnemonic } from 'react-native-rustok-bridge';
 import DevHarness from './src/screens/_DevHarness';
+import ComponentsScreen from './src/screens/_ComponentsScreen';
+import { ThemeProvider } from './src/components/ThemeProvider';
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent isDarkMode={isDarkMode} />
-    </SafeAreaProvider>
+    <ThemeProvider>
+      <SafeAreaProvider>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <AppContent isDarkMode={isDarkMode} />
+      </SafeAreaProvider>
+    </ThemeProvider>
   );
 }
 
@@ -44,9 +48,14 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
   const insets = useSafeAreaInsets();
   const [phrase, setPhrase] = useState<string | null>(null);
   const [showDevHarness, setShowDevHarness] = useState(false);
+  const [showComponentsScreen, setShowComponentsScreen] = useState(false);
 
   if (__DEV__ && showDevHarness) {
     return <DevHarness onBack={() => setShowDevHarness(false)} />;
+  }
+
+  if (__DEV__ && showComponentsScreen) {
+    return <ComponentsScreen onBack={() => setShowComponentsScreen(false)} />;
   }
 
   const onGenerate = async () => {
@@ -99,6 +108,15 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
           onPress={() => setShowDevHarness(true)}
         >
           <Text style={styles.devButtonText}>Open FFI DevHarness</Text>
+        </TouchableOpacity>
+      )}
+
+      {__DEV__ && (
+        <TouchableOpacity
+          style={styles.devButton}
+          onPress={() => setShowComponentsScreen(true)}
+        >
+          <Text style={styles.devButtonText}>Open Components Screen</Text>
         </TouchableOpacity>
       )}
     </View>
