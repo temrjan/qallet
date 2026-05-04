@@ -1,6 +1,6 @@
 # PHASE 3 — Design system + AppShell
 
-**Status:** Planning · not started · awaiting kickoff approval
+**Status:** In progress · M1 + M2 closed (5 commits) · M3 next · awaiting visual smoke (Хэд) before push
 **Created:** 2026-05-04
 **Owner:** temrjan
 **Source plan:** `docs/NATIVE-MIGRATION-PLAN.md` § Phase 3
@@ -44,7 +44,7 @@
 >
 > **Total scope:** ~10 commits across M1-M4 + close-out doc commit ≈ **11 atomic commits** — аналог Phase 2 (11 commits, 113 → 227 tests).
 
-### M1 — Design tokens + theming foundation (2 commits)
+### M1 — Design tokens + theming foundation (2 commits) — **CLOSED 2026-05-04**
 
 **Goal:** NativeWind v4 настроен, переключение light/dark/system работает end-to-end без FOIT.
 
@@ -54,33 +54,39 @@
 - `mobile/src/stores/themeStore.ts` — Zustand store, persist через MMKV с `version: 1`
 - **Synchronous MMKV read до первого render** в `App.tsx` (закрывает R4 — theme flash)
 - `App.tsx` — ThemeProvider + system-mode listener
-- Тестовый theme switch внутри `__dev__/ComponentsScreen.tsx` (НЕ отдельный Settings stub — упрощение vs первого draft'а)
-- **M1 spike pre-check:** verify актуальное `mobile/package.json` (какие из новых deps уже стоят), verify REVIEWER-CONSTITUTION v1.3 точные требования к sign-off (§6.8/§6.9/§9.8)
+- Тестовый theme switch внутри `mobile/src/screens/_ComponentsScreen.tsx` (`screens/_` prefix pattern — НЕ `__dev__/` как в первом draft'е плана; согласовано с `_DevHarness` precedent)
+- Дополнительные artifacts (выявлены в коде, отсутствовали в high-level плане): `mobile/babel.config.js` modify (`+ nativewind/babel` preset), `mobile/metro.config.js` modify (`withNativeWind` wrapper), `mobile/global.css` (NativeWind entry с CSS variables для light/dark), `mobile/tsconfig.json` modify (`+ nativewind/types`)
+- **M1 spike pre-check:** verify актуальное `mobile/package.json`, verify REVIEWER-CONSTITUTION точные требования к sign-off
 
 **Commits:**
-- `feat(mobile): NativeWind v4 + design tokens`
-- `feat(mobile): themeStore (light/dark/system) + sync MMKV persist`
+- `feat(mobile): NativeWind v4 + design tokens` — `4b1e641`
+- `feat(mobile): themeStore (light/dark/system) + sync MMKV persist` — `2ccee00`
 
 **Gate:** переключение темы применяется без перезагрузки app, сохраняется между запусками, никакого flash на cold-start.
 
-### M2 — Component library + dev screen (3 commits)
+### M2 — Component library + dev screen (3 commits) — **CLOSED 2026-05-04**
 
 **Goal:** UI-kit готов для Phase 4 onboarding и для всех будущих экранов.
 
 **Deliverables:**
-- Primitives: `<Button variant="primary|secondary|ghost|danger" size="sm|md|lg">`, `<Input>` (text / password / error state), `<Spinner>`, `<Switch>` (native)
-- Overlays: `<Modal>` поверх `@gorhom/bottom-sheet` (full-screen — отдельный variant), `<Toast>` через `react-native-toast-message`
-- Layout: `<PageHeader>` (title + back-кнопка + optional right action)
-- `mobile/src/__dev__/ComponentsScreen.tsx` — каталог всех компонентов в обоих темах для smoke-проверки
+- Primitives: `<Button variant="primary|secondary|ghost|danger" size="sm|md|lg">`, `<Input>` (text / password / error state, dev-warn если ни label, ни accessibilityLabel заданы), `<Spinner>`, `<Switch>` (native)
+- Overlays: `<Modal>` поверх `@gorhom/bottom-sheet` (declarative wrapper над imperative ref API; `cssInterop(BottomSheetView)` registration для NativeWind className passthrough), `<Toast>` через `react-native-toast-message` (singleton helpers `toast.success/error/info` — theme-aware визуал defer'нут в M5+)
+- Layout: `<PageHeader>` (title + back-кнопка + optional right action) с safe-area top inset
+- `mobile/src/screens/_ComponentsScreen.tsx` — каталог всех компонентов в `<ScrollView>` для smoke-проверки. Путь — **`screens/_` prefix pattern** (как `_DevHarness`), НЕ `__dev__/`.
+- `mobile/__mocks__/styleMock.js` — jest stub для `.css` imports (NativeWind `global.css`). Без него `App.test.tsx` не может require App.
+- App.tsx wrappers (Commit 2 modify): `<ThemeProvider> > <GestureHandlerRootView> > <BottomSheetModalProvider> > <SafeAreaProvider> > AppContent + <ToastProvider>`. Side-effect import `'react-native-gesture-handler';` ПЕРВЫЙ.
+- a11y carry-over из M1: радиогруппы (theme switcher) обёрнуты в `<View accessibilityRole="radiogroup" accessibilityLabel="...">`; каждая опция `accessibilityRole="radio"` + `accessibilityState={{ selected }}`.
 
 > **NetworkBadge перенесён в M4** — компонент бессмысленно делать без `networkStore`, иначе двойная работа.
 
-**Commits:**
-- `feat(mobile): primitive components (Button, Input, Spinner, Switch)`
-- `feat(mobile): overlays (bottom sheet modal + toast) + page header`
-- `feat(mobile): components dev screen`
+> **Component tests deferred → M4** — jest + NativeWind v4 babel pipeline conflict (`react-native-css-interop/babel` переопределяет JSX pragma на `react-native-css-interop/jsx-runtime`, не resolves в jest sandbox → `Unexpected token '<'` на любой JSX в `.tsx` тесте). Babel `env.test` override не помог (попытка задокументирована в попытках до решения). Defer test infrastructure work одним chunk'ом в M4 chore commit (вместе с CI updates + App.test bridge mock surface). themeStore tests остаются gate (5 tests, 100% × 4 metrics).
 
-**Gate:** все компоненты рендерятся корректно в light + dark, accessibility labels на всех интерактивных, dev screen открывается через hidden gesture внутри Settings tab (после M3) или через прямой route в DEV-сборке.
+**Commits:**
+- `feat(mobile): primitive components (Button, Input, Spinner, Switch)` — `99ee254`
+- `feat(mobile): overlays (bottom sheet modal + toast) + page header` — `a299248`
+- `feat(mobile): components dev screen` — `c72335e`
+
+**Gate:** все компоненты рендерятся корректно в light + dark (visual smoke на устройстве — Хэдов финальный gate), accessibility labels на всех интерактивных, dev screen открывается через `__DEV__` button в App.tsx.
 
 ### M3 — AppShell + navigation skeleton (2 commits)
 
@@ -158,7 +164,9 @@
 
 ### 3.5 Modal pattern — bottom sheet first; RN Modal как acceptable fallback
 
-**Choice:** `@gorhom/bottom-sheet@5` как основной overlay (mobile-native UX, единая инфраструктура для Phase 4 reveal-паттернов, корректный ОС back-button).
+**Choice:** `@gorhom/bottom-sheet@^5.2.11` как основной overlay (mobile-native UX, единая инфраструктура для Phase 4 reveal-паттернов, корректный ОС back-button). Использует **imperative ref API** (`present()`/`dismiss()`) — `mobile/src/components/Modal.tsx` оборачивает в declarative `isOpen`/`onClose` через `useRef` + `useEffect` adapter. Также требует `cssInterop(BottomSheetView, { className: 'style' })` registration в Modal.tsx чтобы NativeWind className применялся (gorhom оборачивает Reanimated.View, который не auto-registered в NativeWind compile pipeline).
+
+**Reanimated 4 confirmed (M2 close):** v4.3.0 уже стоит как transitive от NativeWind / react-native-css-interop. `react-native-worklets/plugin` уже включён в `nativewind/babel` preset — никаких ручных правок `babel.config.js` не нужно. gorhom v5.1.8+ совместим с Reanimated 4.
 
 **Fallback (R2):** если @gorhom/bottom-sheet не работает на New Arch — допустим RN core `<Modal>` для full-screen variant, с осознанным trade-off (no native gestures). Не "rejected", а "secondary choice".
 
@@ -190,26 +198,26 @@ Phase 4 не стартует пока Phase 3 не закрыт:
 
 ### Внешние npm-зависимости (новые)
 
-| Пакет | Версия | Используется |
-|-------|--------|--------------|
-| `@react-navigation/native` | 7.x | M3 |
-| `@react-navigation/bottom-tabs` | 7.x | M3 |
-| `@react-navigation/native-stack` | 7.x | M3 |
-| `react-native-screens` | latest | M3 (peer) |
-| `react-native-safe-area-context` | latest | M3 (peer + AppShell) |
-| `react-native-gesture-handler` | latest | M3 (peer) |
-| `nativewind` | 4.x | M1 |
-| `tailwindcss` | 3.4 | M1 (peer) |
-| `zustand` | 5.x | M1, M4 |
-| `react-native-mmkv` | latest | M1 (verify в M1 spike — может уже стоять) |
-| `@gorhom/bottom-sheet` | 5.x | M2 |
-| `react-native-reanimated` | по OQ5 | M2 (peer для bottom-sheet) |
-| `react-native-toast-message` | latest | M2 |
-| `lucide-react-native` | latest | M2 |
-| `class-variance-authority` | latest | M2 |
-| `clsx` | latest | M2 (cn-helper для cva) |
-
-> **Note:** актуальный `mobile/package.json` нужно проверить в M1 spike — некоторые из этих пакетов могут уже стоять с Phase 1.
+| Пакет | Версия | Статус | Используется |
+|-------|--------|--------|--------------|
+| `nativewind` | `^4.1.23` | ✅ M1 | M1 |
+| `tailwindcss` | `~3.4.0` | ✅ M1 | M1 (peer, locked at 3.4.x — NativeWind v4 не совместим с tailwind 4) |
+| `zustand` | `^5.0.0` | ✅ M1 | M1, M4 |
+| `react-native-mmkv` | `^4.3.1` | ✅ M1 | M1 (uses `createMMKV()` factory — `MMKV` is type-only export in v4) |
+| `react-native-nitro-modules` | `^0.35.6` | ✅ M1 | peer для mmkv v4 (undocumented в их README — выявлен в gradle) |
+| `class-variance-authority` | `^0.7.1` | ✅ M2 | M2 (Button variants) |
+| `clsx` | `^2.1.1` | ✅ M2 | M2 (cn-helper для cva + conditional classes) |
+| `@gorhom/bottom-sheet` | `^5.2.11` | ✅ M2 | M2 (declarative Modal wrapper) |
+| `react-native-gesture-handler` | `^2.16.1` | ✅ M2 | M2 (peer для bottom-sheet) |
+| `react-native-reanimated` | **`4.3.0` (transitive)** | ✅ via NativeWind | OQ5 RESOLVED — see §3.5 |
+| `react-native-worklets` | `0.8.1` (transitive) | ✅ via NativeWind | peer для Reanimated 4 |
+| `react-native-toast-message` | `^2.3.3` | ✅ M2 | M2 |
+| `react-native-safe-area-context` | `^5.5.2` | ✅ Phase 1 | already installed Phase 1 (used by AppShell M3) |
+| `@react-navigation/native` | 7.x | ⏳ M3 | M3 |
+| `@react-navigation/bottom-tabs` | 7.x | ⏳ M3 | M3 |
+| `@react-navigation/native-stack` | 7.x | ⏳ M3 | M3 |
+| `react-native-screens` | latest | ⏳ M3 | M3 (peer для navigation) |
+| `lucide-react-native` | latest | ⏳ M2-deferred | iconography — defer (нет use case в M2 components) |
 
 ---
 
@@ -298,7 +306,7 @@ Phase 3 закрыт когда **все** ниже = true:
 | OQ2 | Bottom sheet vs RN Modal — confirm gorhom как primary + RN Modal как fallback (R2), или нужен явный отдельный `<Modal>` поверх RN core с самого начала | **до старта M2** | M2 deliverables, §3.5 |
 | OQ3 | Components dev screen в production — `__DEV__` flag (стандарт RN) или удалить перед Phase 5 | **до close M2** | M2 dev screen lifecycle |
 | OQ4 | NetworkBadge readonly — confirm readonly (только chain icon + label, без tap), или сразу minimal toggle mainnet/testnet | **до старта M2** (компонент сам), **до старта M4** (store actions) | M2 component, M4 networkStore |
-| OQ5 | Reanimated — 3.x stable или 4.x (бета). Phase 4 onboarding всё равно использует. | **до старта M2** (peer dep для @gorhom/bottom-sheet) | M2 install, deps table |
+| OQ5 | ~~Reanimated — 3.x stable или 4.x (бета)~~ **RESOLVED 2026-05-04:** Reanimated **4.3.0** уже установлен в проекте как transitive от NativeWind v4 / react-native-css-interop (использует `react-native-worklets/plugin`). Никаких изменений `babel.config.js` не требуется — preset уже корректен для v4. M1 + M2 gradle builds прошли с этим setup. | RESOLVED | M2 install — confirmed, deps table updated |
 
 > **M1 не блокирован ни одним open question** — стартует сразу после approve плана.
 
@@ -323,7 +331,7 @@ Phase 3 закрыт когда **все** ниже = true:
 - **Source plan section:** `docs/NATIVE-MIGRATION-PLAN.md` § Phase 3 (Design system + AppShell)
 - **Phase 2 final state:** `docs/PHASE2-HANDOFF.md`
 - **Phase 2 constraints pattern:** `docs/PHASE-2-CONSTRAINTS.md`
-- **Reviewer rules:** `docs/REVIEWER-CONSTITUTION.md` (v1.3, 2026-05-04)
+- **Reviewer rules:** `docs/REVIEWER-CONSTITUTION.md` (v1.4 — Skills timing protocol; subsequent rewrite by Reviewer renames executor → Engineer, operator → Head)
 - **Phase 4 что блокируется:** `docs/NATIVE-MIGRATION-PLAN.md` § Phase 4 (Onboarding flow)
 - **Bridge:** `packages/react-native-rustok-bridge/` — 24 commands via WalletHandle
 - **Mobile root:** `mobile/`
