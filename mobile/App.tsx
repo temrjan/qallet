@@ -6,8 +6,14 @@
  * is M4. Phase 2 commit 10 adds a `__DEV__`-gated FFI DevHarness
  * button for runtime smoke testing of the full WalletHandle surface
  * (24 commands across wallet lifecycle, signing, swap, history).
+ *
+ * Phase 3 M1 Commit 1: NativeWind v4 + design tokens added side-by-side.
+ * Existing StyleSheet / useColorScheme path remains intact (migrates in M2).
+ * Smoke verification = the `<View className>` strip below (compiles iff
+ * NativeWind babel/metro pipeline works).
  */
 
+import './global.css';
 import { useState } from 'react';
 import {
   StatusBar,
@@ -74,6 +80,12 @@ function AppContent({ isDarkMode }: { isDarkMode: boolean }) {
     <View style={containerStyle}>
       <Text style={titleStyle}>Rustok</Text>
       <Text style={subtitleStyle}>Phase 1 — POC Foundation</Text>
+
+      {/* Phase 3 M1 smoke: this strip renders iff NativeWind compile works. */}
+      <View
+        accessible={false}
+        className="h-2 w-32 bg-accent-periwinkle rounded-full my-3"
+      />
 
       <TouchableOpacity style={styles.button} onPress={onGenerate}>
         <Text style={styles.buttonText}>Generate mnemonic</Text>

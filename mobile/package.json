@@ -7,12 +7,14 @@
     "ios": "react-native run-ios",
     "lint": "eslint .",
     "start": "react-native start",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "react": "19.2.3",
     "react-native": "0.85.2",
     "@react-native/new-app-screen": "0.85.2",
+    "nativewind": "^4.1.23",
     "react-native-fs": "^2.20.0",
     "react-native-rustok-bridge": "*",
     "react-native-safe-area-context": "^5.5.2",
@@ -37,6 +39,7 @@
     "jest": "^29.6.3",
     "prettier": "2.8.8",
     "react-test-renderer": "19.2.3",
+    "tailwindcss": "~3.4.0",
     "typescript": "^5.8.3"
   },
   "engines": {
